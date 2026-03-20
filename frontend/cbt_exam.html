@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PratiPariksha | Assessment</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="public/js/common.js"></script>
+    <!-- Unified App Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --font-heading: 'Space Grotesk', sans-serif;
+            --font-body: 'Poppins', sans-serif;
+            --accent: #00c6ff;
+            --pink: #f857a6;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: #fbfbfd; /* Soft Apple-style off-white */
+            color: #1d1d1f;
+            margin: 0; padding: 0; overflow: hidden; height: 100vh;
+        }
+
+        h1, h2, h3, .font-heading { font-family: var(--font-heading); letter-spacing: -0.02em; }
+
+        /* The Aurora Gradient Background Effects - Light Mode Palette */
+        .aurora-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; }
+        .blob { position: absolute; filter: blur(120px); opacity: 0.25; border-radius: 50%; }
+        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: var(--accent); } 
+        .blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: var(--pink); } 
+        .blob-3 { top: 30%; left: 30%; width: 40vw; height: 40vw; background: #7928CA; } 
+
+        /* Light Glassmorphism */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.04);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.1); border-radius: 10px; }
+
+        /* Question Navigator Styling */
+        .q-num {
+            display: flex; align-items: center; justify-content: center;
+            height: 48px; width: 100%; border-radius: 14px; font-weight: 600; cursor: pointer;
+            background: rgba(255,255,255,0.8); border: 1px solid rgba(0,0,0,0.05); transition: all 0.2s ease;
+            color: #555;
+        }
+        .q-num:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .q-num.active { border-color: var(--accent); color: var(--accent); background: #fff; }
+        .q-num.answered { background: #1d1d1f; color: #fff; }
+        .q-num.marked { background: var(--pink); color: #fff; border-color: var(--pink); }
+
+        /* Custom Radio/Checkbox */
+        input[type="radio"], input[type="checkbox"] { accent-color: var(--accent); width: 1.2rem; height: 1.2rem; }
+    </style>
+</head>
+<body onload="enterFullscreen()" class="flex flex-col relative">
+
+    <!-- Background Auroras -->
+    <div class="aurora-bg">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- Modals -->
+    <div id="moodbot-popup" class="fixed inset-0 bg-white/40 backdrop-blur-xl z-50 flex items-center justify-center p-6">
+        <div class="glass-panel p-10 rounded-[2.5rem] max-w-md w-full text-center shadow-2xl">
+            <h2 class="text-4xl font-heading mb-3 font-bold text-gray-900">State Check</h2>
+            <p class="text-gray-500 mb-8 font-medium">Capture your current focus level.</p>
+            <div class="flex flex-col gap-3">
+                <button class="bg-white/80 hover:bg-white text-gray-800 font-semibold px-6 py-4 rounded-2xl border border-gray-100 shadow-sm transition" onclick="selectMood('Optimal')">Optimal / Ready</button>
+                <button class="bg-white/80 hover:bg-white text-gray-800 font-semibold px-6 py-4 rounded-2xl border border-gray-100 shadow-sm transition" onclick="selectMood('Neutral')">Neutral / Adequate</button>
+                <button class="bg-white/80 hover:bg-white text-gray-800 font-semibold px-6 py-4 rounded-2xl border border-gray-100 shadow-sm transition" onclick="selectMood('Suboptimal')">Suboptimal / Distracted</button>
+            </div>
+            <p id="moodReply" class="mt-6 text-sm font-bold"></p>
+            <button id="startExamBtn" class="w-full bg-black text-white font-bold mt-8 py-4 rounded-2xl hidden hover:opacity-80 transition" onclick="closeMoodbot()">Begin Assessment</button>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="glass-panel border-b border-gray-100 px-10 py-5 flex justify-between items-center z-10">
+        <div class="text-2xl font-heading font-bold text-gray-900">PratiPariksha <span class="text-gray-300 ml-2 font-light">/</span> <span class="text-gray-500 text-lg ml-2 font-medium" id="studentNameDisplay">Candidate</span></div>
+        <div class="text-3xl font-heading font-bold tracking-tight text-gray-900" id="timer">00:00:00</div>
+    </header>
+
+    <!-- Main Workspace -->
+    <div class="flex-1 flex overflow-hidden z-10 p-8 gap-8">
+        
+        <!-- Left Panel: Navigator -->
+        <div class="w-80 glass-panel rounded-[2rem] p-8 flex flex-col">
+            <h3 class="text-xl font-heading font-bold mb-6 text-gray-900">Index</h3>
+            <div class="grid grid-cols-4 gap-3 overflow-y-auto pr-2" id="qNavigator"></div>
+            
+            <div class="mt-auto pt-8 border-t border-gray-100 text-[0.7rem] text-gray-400 space-y-3 font-bold uppercase tracking-wider">
+                <div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full bg-gray-900"></div> Completed</div>
+                <div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full bg-[#f857a6]"></div> Flagged</div>
+                <div class="flex items-center gap-3"><div class="w-3 h-3 rounded-full bg-white border border-gray-200"></div> Pending</div>
+            </div>
+        </div>
+
+        <!-- Right Panel: Question Area -->
+        <div class="flex-1 glass-panel rounded-[2rem] p-12 flex flex-col relative overflow-y-auto">
+            <h2 class="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4" id="qTitle">Item 1</h2>
+            <div id="qContent" class="text-2xl font-semibold leading-snug text-gray-900 mb-12">Initializing...</div>
+            <div id="optionsList" class="space-y-4 flex-1"></div>
+            
+            <!-- Controls -->
+            <div class="mt-12 pt-10 border-t border-gray-100 flex justify-between items-center">
+                <div class="flex gap-4">
+                    <button class="px-8 py-3 rounded-2xl bg-white border border-gray-100 text-gray-900 font-bold hover:bg-gray-50 shadow-sm transition" onclick="prevQuestion()">Previous</button>
+                    <button class="px-8 py-3 rounded-2xl bg-black text-white font-bold hover:opacity-80 shadow-md transition" onclick="nextQuestion()">Next Item</button>
+                    <button class="px-8 py-3 rounded-2xl bg-white border border-gray-100 text-gray-400 font-bold hover:text-gray-900 transition" onclick="markForReview()">Flag</button>
+                </div>
+                <button class="px-8 py-3 rounded-2xl bg-red-50 text-red-500 hover:bg-red-100 transition font-bold" onclick="submitExam()">Conclude</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        checkRole('student');
+        let questions = [];
+        let currentIndex = 0;
+        let responses = {};
+        let marked = {};
+        let timerSeconds = 3600;
+        let timerInterval = null;
+
+        document.getElementById('studentNameDisplay').innerText = localStorage.getItem('username') || "Student";
+
+        async function enterFullscreen() {
+            try {
+                if (document.documentElement.requestFullscreen) {
+                    await document.documentElement.requestFullscreen();
+                }
+            } catch (e) { console.log("Blocked."); }
+        }
+
+        async function selectMood(mood) {
+            const reply = document.getElementById('moodReply');
+            if (mood === 'Suboptimal') {
+                reply.innerText = "State logged. Proceed with care.";
+                reply.className = 'mt-6 text-sm font-bold text-[#f857a6]';
+            } else {
+                reply.innerText = "State logged. Parameters ready.";
+                reply.className = 'mt-6 text-sm font-bold text-[#00c6ff]';
+            }
+            document.getElementById('startExamBtn').style.display = 'block';
+        }
+
+        function closeMoodbot() {
+            document.getElementById('moodbot-popup').style.display = 'none';
+            loadQuestions();
+            startTimer();
+        }
+
+        async function loadQuestions() {
+            const res = await fetchAPI('/exam/questions');
+            questions = await res.json();
+            renderNavigator();
+            showQuestion(0);
+        }
+
+        function renderNavigator() {
+            const nav = document.getElementById('qNavigator');
+            nav.innerHTML = '';
+            for (let i = 0; i < questions.length; i++) {
+                let status = '';
+                if (responses[i]) status = 'answered';
+                if (marked[i]) status = 'marked';
+                nav.innerHTML += `<div class="q-num ${status} ${i === currentIndex ? 'active' : ''}" onclick="showQuestion(${i})">${i + 1}</div>`;
+            }
+        }
+
+        function showQuestion(index) {
+            if(!questions[index]) return;
+            currentIndex = index;
+            renderNavigator();
+            const q = questions[currentIndex];
+            document.getElementById('qTitle').innerText = `Item ${currentIndex + 1}`;
+            document.getElementById('qContent').innerText = q.question;
+            
+            const opts = document.getElementById('optionsList');
+            opts.innerHTML = '';
+            
+            if (q.type === 'MCQ' || q.type === 'MSQ') {
+                q.options.forEach((opt) => {
+                    const checked = (responses[currentIndex] || '').split(',').includes(opt);
+                    opts.innerHTML += `<label class="flex items-center gap-4 p-5 rounded-2xl border border-gray-100 bg-white/40 hover:bg-white hover:shadow-sm cursor-pointer transition">
+                        <input type="${q.type === 'MCQ' ? 'radio' : 'checkbox'}" name="qOpt" value="${opt}" ${checked ? 'checked' : ''} onchange="saveResponse()">
+                        <span class="font-semibold text-gray-700">${opt}</span>
+                    </label>`;
+                });
+            } else if (q.type === 'NAT') {
+                opts.innerHTML = `<input type="text" id="natAns" value="${responses[currentIndex] || ''}" oninput="saveResponse()" placeholder="Numerical answer" class="w-full bg-white border border-gray-100 rounded-2xl p-5 text-gray-900 font-bold focus:outline-none focus:border-[#00c6ff] transition">`;
+            }
+        }
+
+        function saveResponse() {
+            const q = questions[currentIndex];
+            if (q.type === 'MCQ') {
+                const selected = document.querySelector('input[name="qOpt"]:checked');
+                if (selected) responses[currentIndex] = selected.value;
+            } else if (q.type === 'MSQ') {
+                const selected = Array.from(document.querySelectorAll('input[name="qOpt"]:checked')).map(i => i.value);
+                responses[currentIndex] = selected.join(',');
+            } else if (q.type === 'NAT') {
+                responses[currentIndex] = document.getElementById('natAns').value;
+            }
+            renderNavigator();
+        }
+
+        function nextQuestion() { if (currentIndex < questions.length - 1) showQuestion(currentIndex + 1); }
+        function prevQuestion() { if (currentIndex > 0) showQuestion(currentIndex - 1); }
+        function markForReview() { marked[currentIndex] = !marked[currentIndex]; renderNavigator(); }
+
+        function startTimer() {
+            timerInterval = setInterval(() => {
+                timerSeconds--;
+                if (timerSeconds <= 0) { clearInterval(timerInterval); submitExam(); }
+                const h = Math.floor(timerSeconds / 3600);
+                const m = Math.floor((timerSeconds % 3600) / 60);
+                const s = timerSeconds % 60;
+                document.getElementById('timer').innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        async function submitExam() {
+            if (!confirm('Submit?')) return;
+            const res = await fetchAPI('/exam/submit', { method: 'POST', body: JSON.stringify({}) });
+            const data = await res.json();
+            
+            const overlay = document.createElement('div');
+            overlay.className = 'fixed inset-0 bg-white/60 backdrop-blur-2xl z-50 flex items-center justify-center p-6';
+            overlay.innerHTML = `
+                <div class="glass-panel p-16 rounded-[3rem] max-w-lg w-full text-center shadow-2xl">
+                    <h1 class="text-4xl font-heading font-bold mb-2 text-gray-900">Complete</h1>
+                    <p class="text-gray-400 mb-10 text-lg font-semibold tracking-tight">Assessment session finalized.</p>
+                    <div class="bg-gray-50/50 p-8 rounded-3xl mb-10 border border-white">
+                        <div class="text-[0.6rem] text-gray-400 uppercase tracking-[0.2em] font-black mb-2">Study Points Earned</div>
+                        <div class="text-5xl font-heading font-bold text-black">+240 SP</div>
+                    </div>
+                    <button onclick="window.location.href='student_portal.html'" class="w-full bg-black text-white font-bold py-5 rounded-2xl hover:opacity-80 transition shadow-lg">Return to Dashboard</button>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+            document.exitFullscreen().catch(e => {});
+        }
+    </script>
+</body>
+</html>

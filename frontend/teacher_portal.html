@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PratiPariksha | Teacher Portal</title>
+    <link rel="stylesheet" href="public/css/style.css">
+    <script src="public/js/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+        .tab-btn { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom: 2px solid var(--accent); }
+        .tab-content { display: none; padding-top: 2rem; }
+        .tab-content.active { display: block; }
+        .chart-container { height: 300px; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="brand">PratiPariksha - Teacher Portal</div>
+        <div class="links">
+            <a href="index.html">Home</a>
+            <span id="userNameDisplay"></span>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="tabs">
+            <span class="tab-btn active" onclick="showTab('analytics')">Analytical Dashboard</span>
+            <span class="tab-btn" onclick="showTab('questions')">Question Management</span>
+            <span class="tab-btn" onclick="showTab('forum')">Forum Access</span>
+        </div>
+
+        <div id="analytics" class="tab-content active">
+            <h2>Analytical Dashboard</h2>
+            <div class="dashboard-grid">
+                <div class="card stat-card" style="text-align:center;">
+                    <h3>Average Marks</h3>
+                    <div class="value" id="avgMarks" style="font-size:3rem; color:var(--accent);">0</div>
+                </div>
+                <div class="card stat-card" style="text-align:center;">
+                    <h3>Average Accuracy</h3>
+                    <div class="value" id="avgAccuracy" style="font-size:3rem; color:var(--success);">0%</div>
+                </div>
+            </div>
+            <div class="card chart-container" style="height:400px; margin-top:1.5rem;">
+                <h3>IRT Analysis (Difficulty & Discrimination)</h3>
+                <canvas id="irtChart"></canvas>
+            </div>
+            <div class="card" style="margin-top:1.5rem;">
+                <h3>Weak Topics</h3>
+                <div id="weakTopicsList">None identified yet.</div>
+            </div>
+        </div>
+
+        <div id="questions" class="tab-content">
+            <h2>Question Management</h2>
+            <div class="card">
+                <h3>Add New Question</h3>
+                <form id="addQForm">
+                    <textarea id="qText" style="width:100%;" placeholder="Question Text" required></textarea><br><br>
+                    <select id="qType" onchange="toggleOptions()" required>
+                        <option value="MCQ">MCQ</option>
+                        <option value="MSQ">MSQ</option>
+                        <option value="NAT">NAT</option>
+                    </select><br><br>
+                    <div id="optionsDiv">
+                        <input type="text" class="opt" placeholder="Option 1">
+                        <input type="text" class="opt" placeholder="Option 2">
+                        <input type="text" class="opt" placeholder="Option 3">
+                        <input type="text" class="opt" placeholder="Option 4">
+                    </div>
+                    <input type="text" id="qCorrect" placeholder="Correct Answer" required style="width:100%; margin-top:1rem;"><br><br>
+                    <input type="number" id="qDiff" placeholder="Difficulty Level (1-5)" value="1" min="1" max="5" required><br><br>
+                    <button type="submit" class="btn btn-primary">Save Question</button>
+                </form>
+            </div>
+            <div id="questionsList"></div>
+        </div>
+
+        <div id="forum" class="tab-content">
+            <h2>Forum Access</h2>
+            <div id="forumPostsList"></div>
+        </div>
+    </div>
+
+    <script>
+        checkRole('teacher');
+        document.getElementById('userNameDisplay').innerText = `Welcome, ${localStorage.getItem('username')}`;
+        let irtChartInstance = null;
+
+        function showTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            event.target.classList.add('active');
+            if (tabId === 'analytics') loadAnalytics();
+            if (tabId === 'questions') loadQuestions();
+            if (tabId === 'forum') loadForum();
+        }
+
+        async function loadAnalytics() {
+            const res = await fetchAPI('/teacher/analytics');
+            const data = await res.json();
+            document.getElementById('avgMarks').innerText = data.avg_marks;
+            document.getElementById('avgAccuracy').innerText = data.avg_accuracy + '%';
+            document.getElementById('weakTopicsList').innerText = data.weak_topics.join(', ') || 'None identified.';
+            
+            const ctx = document.getElementById('irtChart').getContext('2d');
+            if (irtChartInstance) irtChartInstance.destroy();
+            
+            irtChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.irt_analysis.map(i => `Q${i.question_id}`),
+                    datasets: [{
+                        label: 'Difficulty Index',
+                        data: data.irt_analysis.map(i => i.difficulty_index),
+                        backgroundColor: 'rgba(52, 152, 219, 0.6)'
+                    }, {
+                        label: 'Discrimination Index',
+                        data: data.irt_analysis.map(i => i.discrimination_index),
+                        backgroundColor: 'rgba(46, 204, 113, 0.6)'
+                    }]
+                },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, max: 1 } } }
+            });
+        }
+
+        function toggleOptions() {
+            const type = document.getElementById('qType').value;
+            document.getElementById('optionsDiv').style.display = type === 'NAT' ? 'none' : 'block';
+        }
+
+        document.getElementById('addQForm').onsubmit = async (e) => {
+            e.preventDefault();
+            const type = document.getElementById('qType').value;
+            const options = Array.from(document.querySelectorAll('.opt')).map(i => i.value).filter(v => v);
+            const body = {
+                question: document.getElementById('qText').value,
+                type: type,
+                options: type === 'NAT' ? [] : options,
+                correct_answer: document.getElementById('qCorrect').value,
+                difficulty_level: parseInt(document.getElementById('qDiff').value)
+            };
+            const res = await fetchAPI('/teacher/questions', { method: 'POST', body: JSON.stringify(body) });
+            if (res.ok) {
+                alert('Question saved!');
+                document.getElementById('addQForm').reset();
+                loadQuestions();
+            }
+        };
+
+        async function loadQuestions() {
+            const res = await fetchAPI('/teacher/questions');
+            const data = await res.json();
+            const list = document.getElementById('questionsList');
+            list.innerHTML = '<h3>Question Bank</h3>';
+            data.forEach(q => {
+                list.innerHTML += `<div class="card">
+                    <strong>Q${q.id} [${q.type}]</strong>: ${q.question}<br>
+                    <small>Correct: ${q.correct_answer} | Difficulty: ${q.difficulty_level}</small>
+                </div>`;
+            });
+        }
+
+        async function loadForum() {
+            const res = await fetchAPI('/student/forum'); // Students and teachers share the same forum view
+            const data = await res.json();
+            const list = document.getElementById('forumPostsList');
+            list.innerHTML = '';
+            data.forEach(p => {
+                list.innerHTML += `<div class="card">
+                    <strong>${p.student_name}</strong>: ${p.post}
+                    <div style="margin-top:1rem;">
+                        <textarea id="reply_${p.id}" placeholder="Type reply..." style="width:100%; height:50px;">${p.reply || ''}</textarea>
+                        <button class="btn btn-success" onclick="replyForum(${p.id})">${p.reply ? 'Update Reply' : 'Reply'}</button>
+                    </div>
+                </div>`;
+            });
+        }
+
+        async function replyForum(id) {
+            const reply = document.getElementById(`reply_${id}`).value;
+            await fetchAPI(`/teacher/forum/reply/${id}`, { method: 'POST', body: JSON.stringify({ reply }) });
+            alert('Reply added');
+        }
+
+        loadAnalytics();
+    </script>
+</body>
+</html>
