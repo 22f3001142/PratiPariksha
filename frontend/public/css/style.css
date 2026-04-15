@@ -17,20 +17,10 @@
 body {
     font-family: var(--font-body);
     margin: 0;
-    background-color: #f9fafb;
-    color: var(--dark);
-    position: relative;
+    background-color: #fbfbfd;
+    color: #1d1d1f;
     min-height: 100vh;
 }
-
-/* Global Grainy Background */
-body::before {
-    content: ""; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-    background-image: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 800"><g fill-opacity="0.25"><circle fill="%23000000" cx="400" cy="400" r="600"/><circle fill="%23111111" cx="400" cy="400" r="500"/><circle fill="%23222222" cx="400" cy="400" r="400"/><circle fill="%23333333" cx="400" cy="400" r="300"/><circle fill="%23444444" cx="400" cy="400" r="200"/><circle fill="%23555555" cx="400" cy="400" r="100"/></g></svg>');
-    background-size: cover; opacity: 0.03; z-index: -1;
-    animation: grain 8s steps(10) infinite;
-}
-@keyframes grain { 0%, 100% { transform:translate(0, 0) } 10% { transform:translate(-5%, -10%) } 20% { transform:translate(-15%, 5%) } 30% { transform:translate(7%, -25%) } 40% { transform:translate(-5%, 25%) } 50% { transform:translate(-15%, 10%) } 60% { transform:translate(15%, 0%) } 70% { transform:translate(0%, 15%) } 80% { transform:translate(3%, 35%) } 90% { transform:translate(-10%, 10%) } }
 
 h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-heading);
@@ -40,29 +30,32 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Glassmorphism Navbar for non-Tailwind pages */
 nav {
-    background: rgba(255, 255, 255, 0.7);
-    backdrop-filter: blur(20px);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-    padding: 1rem 2rem;
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    padding: 1rem 2.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 nav .brand { font-size: 1.5rem; font-weight: bold; font-family: var(--font-heading); color: var(--primary); }
 nav .links a { color: var(--secondary); text-decoration: none; margin-left: 1.5rem; font-weight: 500; transition: color 0.2s; }
 nav .links a:hover { color: var(--primary); }
 
-.container { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+.container { max-width: 1240px; margin: 2rem auto; padding: 0 1.25rem; }
 
 /* Light Glassmorphism Card for Login/About pages */
 .card {
-    background: rgba(255, 255, 255, 0.6);
-    backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.75);
     padding: 2.5rem;
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+    border-radius: 28px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.05);
     margin-bottom: 1.5rem;
 }
 
@@ -81,10 +74,10 @@ nav .links a:hover { color: var(--primary); }
 
 /* Clean Input Fields */
 input, select, textarea {
-    background: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.95);
     border: 1px solid #e5e7eb;
-    border-radius: 10px;
-    padding: 0.85rem;
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
     font-family: var(--font-body);
     outline: none;
     transition: all 0.2s;
@@ -92,6 +85,7 @@ input, select, textarea {
     box-sizing: border-box;
 }
 input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
 
 /* Tables */
 table { width: 100%; border-collapse: collapse; }

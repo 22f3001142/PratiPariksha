@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="public/css/style.css">
     <script src="public/js/common.js"></script>
     <style>
-        .dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+        .dashboard-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
         .tab-btn { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; }
         .tab-btn.active { border-bottom: 2px solid var(--accent); }
         .tab-content { display: none; padding-top: 2rem; }
@@ -30,10 +30,10 @@
     </nav>
     <div class="container">
         <div class="tabs">
-            <span class="tab-btn active" onclick="showTab('exam_control')">Exam Control</span>
-            <span class="tab-btn" onclick="showTab('user_management')">User Management</span>
-            <span class="tab-btn" onclick="showTab('system_analytics')">System Analytics</span>
-            <span class="tab-btn" onclick="showTab('loo_break')">Loo Break Monitor</span>
+            <span class="tab-btn active" onclick="showTab('exam_control', this)">Exam Control</span>
+            <span class="tab-btn" onclick="showTab('user_management', this)">User Management</span>
+            <span class="tab-btn" onclick="showTab('system_analytics', this)">System Analytics</span>
+            <span class="tab-btn" onclick="showTab('loo_break', this)">Loo Break Monitor</span>
         </div>
 
         <div id="exam_control" class="tab-content active">
@@ -42,6 +42,8 @@
                 <div>
                     <h3>Global Exam Status</h3>
                     <p id="examStatusText" style="font-weight:bold; font-size:1.2rem; color:var(--danger);">STOPPED</p>
+                    <label for="testSelector" style="display:block; margin-top:1rem;">Live Test</label>
+                    <select id="testSelector" style="min-width:260px;"></select>
                 </div>
                 <label class="switch">
                     <input type="checkbox" id="examSwitch" onchange="toggleExam()">
@@ -63,6 +65,7 @@
                     <input type="text" id="userName" placeholder="Full Name" required>
                     <input type="email" id="userEmail" placeholder="Email" required>
                     <input type="password" id="userPassword" placeholder="Password" required>
+                    <select id="assignedTeacher"></select>
                     <button type="submit" class="btn btn-primary">Add User</button>
                 </form>
             </div>
@@ -87,6 +90,10 @@
                     <h3>Active Exams</h3>
                     <div class="value" id="activeExams" style="font-size:3rem; color:var(--success);">0</div>
                 </div>
+                <div class="card stat-card" style="text-align:center;">
+                    <h3>Saved Tests</h3>
+                    <div class="value" id="availableTests" style="font-size:3rem; color:var(--accent);">0</div>
+                </div>
             </div>
         </div>
 
@@ -103,24 +110,52 @@
 
     <script>
         checkRole('admin');
-        document.getElementById('userNameDisplay').innerText = `Welcome, ${localStorage.getItem('username')}`;
+        document.getElementById('userNameDisplay').innerText = `Welcome, ${getDisplayName()}`;
+        document.getElementById('userRole').addEventListener('change', syncUserFormState);
 
-        function showTab(tabId) {
+        function showTab(tabId, element) {
             document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
             document.getElementById(tabId).classList.add('active');
-            event.target.classList.add('active');
+            element.classList.add('active');
             if (tabId === 'exam_control') checkExamStatus();
             if (tabId === 'user_management') loadUsers();
             if (tabId === 'system_analytics') loadSystemAnalytics();
             if (tabId === 'loo_break') loadLooBreaks();
         }
 
+        function syncUserFormState() {
+            const role = document.getElementById('userRole').value;
+            const assignedTeacher = document.getElementById('assignedTeacher');
+            assignedTeacher.style.display = role === 'student' ? 'block' : 'none';
+            assignedTeacher.required = role === 'student';
+            assignedTeacher.previousElementSibling;
+        }
+
+        async function loadTests() {
+            const res = await fetchAPI('/admin/tests');
+            if (!res.ok) {
+                return;
+            }
+            const tests = await res.json();
+            const selector = document.getElementById('testSelector');
+            selector.innerHTML = tests.length
+                ? tests.map(test => `<option value="${test.id}">${test.title} · ${test.topic} · ${test.question_count} questions</option>`).join('')
+                : '<option value="">No tests available</option>';
+        }
+
         async function checkExamStatus() {
+            await loadTests();
             const res = await fetchAPI('/exam/status');
+            if (!res.ok) {
+                return;
+            }
             const data = await res.json();
             const checkbox = document.getElementById('examSwitch');
             const statusText = document.getElementById('examStatusText');
+            if (data.test_id) {
+                document.getElementById('testSelector').value = String(data.test_id);
+            }
             if (data.status === 'started') {
                 checkbox.checked = true;
                 statusText.innerText = 'STARTED';
@@ -135,12 +170,16 @@
         async function toggleExam() {
             const checkbox = document.getElementById('examSwitch');
             const status = checkbox.checked ? 'started' : 'stopped';
+            const testId = document.getElementById('testSelector').value;
             const res = await fetchAPI('/admin/exam-toggle', {
                 method: 'POST',
-                body: JSON.stringify({ status })
+                body: JSON.stringify({ status, test_id: testId ? parseInt(testId, 10) : null })
             });
             if (res.ok) {
                 checkExamStatus();
+            } else {
+                checkbox.checked = !checkbox.checked;
+                alert('Could not update exam status.');
             }
         }
 
@@ -151,34 +190,54 @@
                 id: document.getElementById('userId').value,
                 name: document.getElementById('userName').value,
                 email: document.getElementById('userEmail').value,
-                password: document.getElementById('userPassword').value
+                password: document.getElementById('userPassword').value,
+                assigned_teacher_id: document.getElementById('userRole').value === 'student'
+                    ? document.getElementById('assignedTeacher').value
+                    : null
             };
             const res = await fetchAPI('/admin/users', { method: 'POST', body: JSON.stringify(body) });
             if (res.ok) {
                 alert('User created!');
                 document.getElementById('addUserForm').reset();
                 loadUsers();
+            } else {
+                const data = await res.json();
+                alert(data.msg || 'Could not create user.');
             }
         };
 
         async function loadUsers() {
             const res = await fetchAPI('/admin/users');
+            if (!res.ok) {
+                return;
+            }
             const data = await res.json();
             const list = document.getElementById('usersList');
-            list.innerHTML = '<h4>Students</h4><ul>' + data.students.map(s => `<li>${s.name} (${s.admission_id})</li>`).join('') + '</ul>';
-            list.innerHTML += '<h4>Teachers</h4><ul>' + data.teachers.map(t => `<li>${t.name} (${t.employee_id})</li>`).join('') + '</ul>';
+            const teacherMap = Object.fromEntries(data.teachers.map(teacher => [teacher.employee_id, teacher]));
+            const assignedTeacher = document.getElementById('assignedTeacher');
+            assignedTeacher.innerHTML = '<option value="">Assign Teacher</option>' + data.teachers.map(teacher => `<option value="${teacher.employee_id}">${teacher.name} · ${teacher.subject}</option>`).join('');
+            list.innerHTML = '<h4>Students</h4><ul>' + data.students.map(student => `<li>${student.name} (${student.admission_id})${student.assigned_teacher_id ? ` · ${teacherMap[student.assigned_teacher_id]?.name || student.assigned_teacher_id}` : ''}</li>`).join('') + '</ul>';
+            list.innerHTML += '<h4>Teachers</h4><ul>' + data.teachers.map(teacher => `<li>${teacher.name} (${teacher.employee_id}) · ${teacher.subject}</li>`).join('') + '</ul>';
+            syncUserFormState();
         }
 
         async function loadSystemAnalytics() {
             const res = await fetchAPI('/admin/analytics');
+            if (!res.ok) {
+                return;
+            }
             const data = await res.json();
             document.getElementById('totalStudents').innerText = data.total_students;
             document.getElementById('totalTeachers').innerText = data.total_teachers;
             document.getElementById('activeExams').innerText = data.active_exams;
+            document.getElementById('availableTests').innerText = data.available_tests || 0;
         }
 
         async function loadLooBreaks() {
             const res = await fetchAPI('/admin/loo-breaks');
+            if (!res.ok) {
+                return;
+            }
             const data = await res.json();
             const body = document.getElementById('looBreakBody');
             body.innerHTML = '';
@@ -188,6 +247,7 @@
         }
 
         checkExamStatus();
+        loadUsers();
     </script>
 </body>
 </html>

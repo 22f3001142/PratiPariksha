@@ -2,29 +2,286 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PratiPariksha | Home</title>
-    <link rel="stylesheet" href="public/css/style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PratiPariksha | Awaken New Horizons</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        .hero { text-align: center; padding: 5rem 1rem; background-color: white; border-bottom: 1px solid #ddd; }
-        .hero h1 { font-size: 3.5rem; color: var(--primary); margin-bottom: 0.5rem; }
-        .hero p { font-size: 1.5rem; color: #666; max-width: 800px; margin: 0 auto 2rem; }
+        :root {
+            --font-heading: 'Space Grotesk', sans-serif;
+            --font-body: 'Poppins', sans-serif;
+            --bg-space: #070913; /* Deep deep blue/black */
+            --accent-blue: #00c6ff;
+            --accent-pink: #f857a6;
+            --accent-purple: #7928ca;
+        }
+
+        body {
+            font-family: var(--font-body);
+            background-color: var(--bg-space);
+            color: #ffffff;
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+            scroll-behavior: smooth;
+        }
+
+        h1, h2, h3, .font-heading { font-family: var(--font-heading); letter-spacing: -0.03em; }
+
+        /* --- ANIMATIONS --- */
+        @keyframes float {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-20px) rotate(2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes float-slow {
+            0% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-30px) rotate(-2deg); }
+            100% { transform: translateY(0px) rotate(0deg); }
+        }
+        @keyframes twinkle {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); box-shadow: 0 0 10px #fff; }
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+            100% { transform: scale(0.95); opacity: 0.5; }
+        }
+
+        .animate-float { animation: float 6s ease-in-out infinite; }
+        .animate-float-slow { animation: float-slow 10s ease-in-out infinite; }
+        
+        /* --- CSS ART: SPACE ELEMENTS --- */
+        .star {
+            position: absolute; background: #fff; border-radius: 50%;
+            animation: twinkle infinite ease-in-out;
+        }
+        
+        /* The Giant CSS Planet */
+        .planet-container {
+            position: absolute; top: 15%; left: -10%; z-index: 0;
+            width: 500px; height: 500px;
+        }
+        .planet {
+            width: 100%; height: 100%; border-radius: 50%;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #000000 100%);
+            box-shadow: inset -40px -40px 50px rgba(0,0,0,0.9), 0 0 60px rgba(79, 70, 229, 0.4);
+            position: relative; overflow: hidden;
+        }
+        /* Planet Texture/Stripes */
+        .planet::after {
+            content: ''; position: absolute; top: 20%; left: -20%; width: 140%; height: 20px;
+            background: rgba(255,255,255,0.05); transform: rotate(-15deg); filter: blur(5px);
+        }
+        .planet::before {
+            content: ''; position: absolute; top: 40%; left: -20%; width: 140%; height: 40px;
+            background: rgba(255,255,255,0.03); transform: rotate(-15deg); filter: blur(8px);
+        }
+        /* Planetary Ring */
+        .planet-ring {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg) scaleY(0.3);
+            width: 140%; height: 140%; border-radius: 50%;
+            border: 15px solid rgba(0, 198, 255, 0.3);
+            box-shadow: 0 0 20px rgba(0, 198, 255, 0.5), inset 0 0 20px rgba(0, 198, 255, 0.5);
+            pointer-events: none;
+        }
+
+        /* Glowing Nebulas */
+        .nebula { position: absolute; filter: blur(120px); border-radius: 50%; z-index: 0; opacity: 0.4; pointer-events: none; }
+        .nebula-1 { top: -20%; right: 10%; width: 600px; height: 600px; background: var(--accent-purple); }
+        .nebula-2 { bottom: 20%; left: 20%; width: 500px; height: 500px; background: #1e3a8a; }
+
+        /* --- GLASSMORPHISM --- */
+        .glass-nav {
+            background: rgba(7, 9, 19, 0.5);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+            transition: all 0.3s ease;
+        }
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-10px);
+            box-shadow: 0 30px 60px rgba(0, 198, 255, 0.1);
+        }
+
+        /* SVG Mountain Horizon */
+        .horizon-divider {
+            position: absolute; bottom: 0; left: 0; width: 100%; overflow: hidden; line-height: 0; z-index: 1;
+        }
+        .horizon-divider svg {
+            position: relative; display: block; width: calc(100% + 1.3px); height: 150px;
+        }
+        .horizon-divider .shape-fill { fill: #0a0e1c; } /* Matches section below */
     </style>
 </head>
 <body>
-    <nav>
-        <div class="brand">PratiPariksha</div>
-        <div class="links">
-            <a href="about.html">About</a>
-            <a href="login.html" class="btn btn-primary" style="padding: 0.5rem 1.5rem; border-radius: 20px;">Get Started</a>
+
+    <!-- Generated Starfield Background -->
+    <div id="stars-container" class="fixed inset-0 z-0 pointer-events-none"></div>
+
+    <!-- Navigation -->
+    <nav class="glass-nav fixed w-full top-0 z-50 px-8 py-5 transition-all">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <div class="text-2xl font-heading font-extrabold text-white tracking-tight flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full bg-gradient-to-tr from-[#00c6ff] to-[#7928ca] animate-pulse"></div>
+                PratiPariksha
+            </div>
+            <div class="hidden md:flex gap-8 text-sm font-medium text-gray-300">
+                <a href="#features" class="hover:text-white transition">Ecosystem</a>
+                <a href="#about" class="hover:text-white transition">Mission</a>
+                <a href="mailto:contact@pratipariksha.com" class="hover:text-white transition">Transmission</a>
+            </div>
+            <a href="login.html" class="bg-white text-black font-bold font-heading px-8 py-3 rounded-full hover:bg-gray-200 transition shadow-[0_0_20px_rgba(255,255,255,0.2)]">
+                Launch Portal
+            </a>
         </div>
     </nav>
-    <div class="hero">
-        <h1>PratiPariksha</h1>
-        <p>A modern, student-centric Computer Based Test (CBT) and learning platform designed to combine fair examination, analytics, and gamified learning.</p>
-        <a href="login.html" class="btn btn-primary" style="font-size: 1.2rem; padding: 0.75rem 2rem;">Student Login</a>
-    </div>
-    <div class="container" style="text-align: center;">
-        <h2>Self Examination. Intelligent Learning.</h2>
-    </div>
+
+    <!-- Hero Section -->
+    <section class="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
+        <!-- Space Background Elements -->
+        <div class="nebula nebula-1"></div>
+        <div class="nebula nebula-2"></div>
+        
+        <!-- The CSS Planet -->
+        <div class="planet-container animate-float-slow hidden lg:block">
+            <div class="planet"></div>
+            <div class="planet-ring"></div>
+        </div>
+
+        <!-- Floating Abstract Elements (Asteroids/Ships) -->
+        <div class="absolute top-1/4 right-[15%] w-12 h-12 rounded-lg bg-white/5 border border-white/20 backdrop-blur-md rotate-12 animate-float"></div>
+        <div class="absolute bottom-1/3 right-[25%] w-8 h-8 rounded-full bg-[#00c6ff]/20 border border-[#00c6ff]/50 animate-float-slow" style="animation-delay: 2s;"></div>
+
+        <!-- Main Hero Content -->
+        <div class="relative z-10 max-w-4xl mx-auto text-center px-6 mt-10">
+            <div class="inline-block px-4 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-xs font-bold tracking-widest text-[#00c6ff] uppercase mb-8">
+                System Online • V2.0 Deployed
+            </div>
+            
+            <h1 class="text-6xl md:text-8xl font-heading font-extrabold mb-6 leading-tight">
+                Navigate the universe of <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00c6ff] via-[#7928ca] to-[#f857a6]">your potential.</span>
+            </h1>
+            
+            <p class="text-xl md:text-2xl text-gray-400 font-light mb-12 max-w-2xl mx-auto leading-relaxed">
+                A full-cycle, AI-powered assessment platform designed to track cognitive focus, gamify your learning journey, and elevate your mind.
+            </p>
+            
+            <div class="flex flex-col sm:flex-row gap-6 justify-center items-center">
+                <a href="login.html" class="group relative px-10 py-5 bg-gradient-to-r from-[#00c6ff] to-[#7928ca] rounded-full font-heading font-bold text-lg text-white overflow-hidden shadow-[0_0_40px_rgba(0,198,255,0.4)] hover:shadow-[0_0_60px_rgba(0,198,255,0.6)] transition-all duration-300 transform hover:-translate-y-1">
+                    <span class="relative z-10">Initiate Sequence</span>
+                    <div class="absolute inset-0 h-full w-full bg-white/20 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left duration-300"></div>
+                </a>
+                <a href="#features" class="px-10 py-5 rounded-full font-heading font-bold text-lg text-white border border-white/20 hover:bg-white/5 transition-all">
+                    Explore Ecosystem
+                </a>
+            </div>
+        </div>
+
+        <!-- Mountain Horizon Divider dividing Hero from Features -->
+        <div class="horizon-divider">
+            <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+                <path d="M0,0V46.29c47.79,22.2,103.59,32.17,158,28,70.36-5.37,136.33-33.31,206.8-37.5C438.64,32.43,512.34,53.67,583,72.05c69.27,18,138.3,24.88,209.4,13.08,36.15-6,69.85-17.84,104.45-29.34C989.49,25,1113-14.29,1200,52.47V0Z" opacity=".25" class="shape-fill"></path>
+                <path d="M0,0V15.81C13,36.92,27.64,56.86,47.69,72.05,99.41,111.27,165,111,224.58,91.58c31.15-10.15,60.09-26.07,89.67-39.8,40.92-19,84.73-46,130.83-49.67,36.26-2.85,70.9,9.42,98.6,31.56,31.77,25.39,62.32,62,103.63,73,40.44,10.79,81.35-6.69,119.13-24.28s75.16-39,116.92-43.05c59.73-5.85,113.28,22.88,168.9,38.84,30.2,8.66,59,6.17,87.09-7.5,22.43-10.89,48-26.93,60.65-23.82V0Z" opacity=".5" class="shape-fill"></path>
+                <path d="M0,0V5.63C149.93,59,314.09,71.32,475.83,42.57c43-7.64,84.23-20.12,127.61-26.46,59-8.63,112.48,12.24,165.56,35.4C827.93,77.22,886,95.24,951.2,90c86.53-7,172.46-45.71,248.8-84.81V0Z" class="shape-fill"></path>
+            </svg>
+        </div>
+    </section>
+
+    <!-- Features Ecosystem Section -->
+    <section id="features" class="relative py-24 bg-[#0a0e1c] z-10">
+        <div class="max-w-7xl mx-auto px-8">
+            <div class="text-center mb-20">
+                <h2 class="text-4xl md:text-5xl font-heading font-bold mb-6">What we build</h2>
+                <p class="text-gray-400 font-light max-w-2xl mx-auto">PratiPariksha is a full-cycle design and development platform specializing in deep-focus assessments, big on collaboration and prototyping new ideas.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                <!-- Card 1 -->
+                <div class="glass-card p-8 rounded-3xl animate-float" style="animation-delay: 0s;">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#00c6ff]/20 to-transparent border border-[#00c6ff]/30 flex items-center justify-center text-2xl mb-6 shadow-[0_0_15px_rgba(0,198,255,0.2)]">
+                        🧠
+                    </div>
+                    <h3 class="text-xl font-heading font-bold mb-3">Cognitive Tracking</h3>
+                    <p class="text-sm text-gray-400 font-light">Real-time mood and focus monitoring during assessments via our proprietary Moodbot system.</p>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="glass-card p-8 rounded-3xl animate-float" style="animation-delay: 1s;">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#7928ca]/20 to-transparent border border-[#7928ca]/30 flex items-center justify-center text-2xl mb-6 shadow-[0_0_15px_rgba(121,40,202,0.2)]">
+                        📊
+                    </div>
+                    <h3 class="text-xl font-heading font-bold mb-3">Dynamic Analytics</h3>
+                    <p class="text-sm text-gray-400 font-light">Deep insights into student performance, identifying conceptual gaps rather than just tracking scores.</p>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="glass-card p-8 rounded-3xl animate-float" style="animation-delay: 2s;">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#f857a6]/20 to-transparent border border-[#f857a6]/30 flex items-center justify-center text-2xl mb-6 shadow-[0_0_15px_rgba(248,87,166,0.2)]">
+                        💎
+                    </div>
+                    <h3 class="text-xl font-heading font-bold mb-3">Avatar Economy</h3>
+                    <p class="text-sm text-gray-400 font-light">A robust gamification engine. Earn Study Points (SP) to unlock ethereal digital avatars and climb the ranks.</p>
+                </div>
+
+                <!-- Card 4 -->
+                <div class="glass-card p-8 rounded-3xl animate-float" style="animation-delay: 3s;">
+                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-white/10 to-transparent border border-white/20 flex items-center justify-center text-2xl mb-6 shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                        ⚡
+                    </div>
+                    <h3 class="text-xl font-heading font-bold mb-3">Deep Focus UI</h3>
+                    <p class="text-sm text-gray-400 font-light">A completely distraction-free, dark-mode exam portal designed to simulate a flow state.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Simple Footer -->
+    <footer class="bg-[#05070e] border-t border-white/5 py-10 text-center text-sm text-gray-600 font-light z-10 relative">
+        <p>&copy; 2026 Team 88 • PratiPariksha. All systems operational.</p>
+    </footer>
+
+    <!-- JavaScript to generate the starry background dynamically -->
+    <script>
+        function createStars() {
+            const container = document.getElementById('stars-container');
+            const starCount = 150; // Number of stars
+            
+            for (let i = 0; i < starCount; i++) {
+                const star = document.createElement('div');
+                star.classList.add('star');
+                
+                // Randomize position, size, and animation delay
+                const x = Math.random() * 100;
+                const y = Math.random() * 100;
+                const size = Math.random() * 3 + 1; // 1px to 4px
+                const delay = Math.random() * 5; // 0s to 5s delay
+                const duration = Math.random() * 3 + 2; // 2s to 5s duration
+
+                star.style.left = `${x}vw`;
+                star.style.top = `${y}vh`;
+                star.style.width = `${size}px`;
+                star.style.height = `${size}px`;
+                star.style.animationDelay = `${delay}s`;
+                star.style.animationDuration = `${duration}s`;
+                
+                // Make some stars slightly blue/purple for depth
+                if (Math.random() > 0.8) star.style.backgroundColor = '#a5b4fc';
+                if (Math.random() > 0.9) star.style.backgroundColor = '#fbcfe8';
+
+                container.appendChild(star);
+            }
+        }
+
+        // Initialize stars on load
+        window.onload = createStars;
+    </script>
 </body>
 </html>

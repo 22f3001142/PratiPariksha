@@ -2,28 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>PratiPariksha | Portal</title>
+    <title>PratiPariksha | Student Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="public/js/common.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="public/css/style.css"> <!-- We can still link style.css for the background/fonts! -->
+    <link rel="stylesheet" href="public/css/style.css">
     <style>
-        .tab-content { display: none; animation: fadeIn 0.4s ease-out; }
+        .tab-content { display: none; animation: fadeIn 0.35s ease-out; }
         .tab-content.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
-        /* Tailwind specific glassmorphism helper */
         .glass-panel-tw {
-            background: rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.56);
             backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.06);
         }
     </style>
 </head>
 <body class="text-gray-800 h-screen flex flex-col">
-    
-    <!-- Navbar -->
     <nav class="glass-panel-tw border-b border-gray-200 px-8 py-3 flex justify-between items-center z-10 sticky top-0">
         <div class="text-2xl font-heading font-bold text-black">PratiPariksha</div>
         <div class="flex items-center gap-6">
@@ -32,7 +28,7 @@
                 <span>⭐ Lvl <span id="navLevel">1</span></span>
             </div>
             <div class="flex items-center gap-3">
-                <img id="navAvatar" src="" alt="Avatar" class="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm">
+                <div id="navAvatar" class="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center text-lg shadow-sm">🙂</div>
                 <span id="userNameDisplay" class="font-medium text-black"></span>
             </div>
             <button onclick="logout()" class="text-sm font-medium text-gray-500 hover:text-black transition">Sign Out</button>
@@ -40,41 +36,57 @@
     </nav>
 
     <div class="flex flex-1 overflow-hidden">
-        <!-- Sidebar Navigation -->
-        <div class="w-64 p-6 flex flex-col gap-2 z-10">
+        <div class="w-72 p-6 flex flex-col gap-2 z-10">
             <button class="tab-btn active text-left px-5 py-3 rounded-xl bg-black text-white font-semibold transition-all" onclick="showTab('dashboard', this)">Dashboard</button>
             <button class="tab-btn text-left px-5 py-3 rounded-xl hover:bg-white/60 text-gray-500 font-semibold transition-all" onclick="showTab('leaderboard', this)">Leaderboard</button>
             <button class="tab-btn text-left px-5 py-3 rounded-xl hover:bg-white/60 text-gray-500 font-semibold transition-all" onclick="showTab('shop', this)">Avatar Studio</button>
-            <button class="tab-btn text-left px-5 py-3 rounded-xl hover:bg-white/60 text-gray-500 font-semibold transition-all" onclick="showTab('forum', this)">Discussions</button>
+            <button class="tab-btn text-left px-5 py-3 rounded-xl hover:bg-white/60 text-gray-500 font-semibold transition-all" onclick="showTab('forum', this)">Doubt Forum</button>
             <button class="tab-btn text-left px-5 py-3 rounded-xl hover:bg-white/60 text-gray-500 font-semibold transition-all" onclick="showTab('resources', this)">Library</button>
+            <button class="tab-btn text-left px-5 py-3 rounded-xl hover:bg-white/60 text-gray-500 font-semibold transition-all" onclick="showTab('studybot', this)">AI Study Bot</button>
         </div>
 
-        <!-- Main Content Area -->
         <div class="flex-1 p-8 overflow-y-auto z-10">
-            
             <div id="dashboard" class="tab-content active max-w-6xl mx-auto">
                 <h2 class="text-5xl font-heading font-bold mb-10 text-black">Dashboard</h2>
                 <div class="grid grid-cols-4 gap-6 mb-12">
-                    <div class="rounded-3xl p-6 text-white shadow-md hover:-translate-y-1 transition-transform" style="background: linear-gradient(to right, #00c6ff, #0072ff);">
+                    <div class="rounded-3xl p-6 text-white shadow-md" style="background: linear-gradient(to right, #00c6ff, #0072ff);">
                         <div class="text-white/80 text-sm font-semibold mb-2">Total Marks</div>
                         <div class="text-4xl font-heading font-bold" id="marksVal">0</div>
                     </div>
-                    <div class="rounded-3xl p-6 text-white shadow-md hover:-translate-y-1 transition-transform" style="background: linear-gradient(to right, #f857a6, #ff5858);">
+                    <div class="rounded-3xl p-6 text-white shadow-md" style="background: linear-gradient(to right, #f857a6, #ff5858);">
                         <div class="text-white/80 text-sm font-semibold mb-2">Class Rank</div>
                         <div class="text-4xl font-heading font-bold" id="rankVal">#0</div>
                     </div>
-                    <div class="rounded-3xl p-6 text-white shadow-md hover:-translate-y-1 transition-transform" style="background: linear-gradient(to right, #e52d27, #b31217);">
+                    <div class="rounded-3xl p-6 text-white shadow-md" style="background: linear-gradient(to right, #e52d27, #b31217);">
                         <div class="text-white/80 text-sm font-semibold mb-2">Study Points</div>
                         <div class="text-4xl font-heading font-bold" id="pointsVal">0</div>
                     </div>
-                    <div class="rounded-3xl p-6 text-black shadow-md hover:-translate-y-1 transition-transform" style="background: linear-gradient(to right, #fffde4, #f5d020);">
+                    <div class="rounded-3xl p-6 text-black shadow-md" style="background: linear-gradient(to right, #fffde4, #f5d020);">
                         <div class="text-black/60 text-sm font-semibold mb-2">Achievements</div>
                         <div class="text-lg font-medium mt-2" id="badgesVal">None</div>
                     </div>
                 </div>
-                <div class="glass-panel-tw rounded-3xl p-8">
-                    <h3 class="text-3xl font-heading font-bold mb-6 text-black">Upcoming Assessments</h3>
-                    <div id="upcomingTestsList" class="space-y-4">Loading...</div>
+
+                <div class="grid grid-cols-2 gap-6">
+                    <div class="glass-panel-tw rounded-3xl p-8">
+                        <h3 class="text-3xl font-heading font-bold mb-6 text-black">Upcoming Assessments</h3>
+                        <div id="upcomingTestsList" class="space-y-4">Loading...</div>
+                    </div>
+                    <div class="glass-panel-tw rounded-3xl p-8">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="text-3xl font-heading font-bold text-black">Level Progress</h3>
+                            <span class="text-sm font-semibold text-gray-500">Next level in <span id="pointsToNextLevel">50</span> SP</span>
+                        </div>
+                        <div class="w-full bg-white/70 rounded-full h-4 overflow-hidden mb-6">
+                            <div id="levelProgressBar" class="h-4 rounded-full bg-black transition-all" style="width: 0%;"></div>
+                        </div>
+                        <h3 class="text-3xl font-heading font-bold mb-6 text-black">Personalised Study Plan</h3>
+                        <div id="studyPlanList" class="space-y-3 text-sm text-gray-700"></div>
+                        <div class="mt-6">
+                            <h4 class="font-semibold text-black mb-2">Weak Areas</h4>
+                            <div id="weakTopicsList" class="flex flex-wrap gap-2 text-sm"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -86,7 +98,6 @@
                 <div class="grid grid-cols-5 gap-6" id="avatarStoreGrid"></div>
             </div>
 
-            <!-- Changed to Class Rankings -->
             <div id="leaderboard" class="tab-content max-w-6xl mx-auto">
                 <h2 class="text-5xl font-heading font-bold mb-10 text-black">Class Rankings</h2>
                 <div class="glass-panel-tw rounded-3xl overflow-hidden">
@@ -99,21 +110,50 @@
                 </div>
             </div>
 
-            <div id="forum" class="tab-content max-w-6xl mx-auto"><h2 class="text-5xl font-heading font-bold">Discussions</h2></div>
-            <div id="resources" class="tab-content max-w-6xl mx-auto"><h2 class="text-5xl font-heading font-bold">Library</h2></div>
+            <div id="forum" class="tab-content max-w-6xl mx-auto">
+                <h2 class="text-5xl font-heading font-bold mb-10">Doubt Forum</h2>
+                <div class="glass-panel-tw rounded-3xl p-8 mb-8">
+                    <h3 class="text-2xl font-heading font-bold mb-4">Ask Your Teacher</h3>
+                    <form id="forumForm" class="space-y-4">
+                        <textarea id="forumPost" class="w-full rounded-2xl p-4 border border-white/50 bg-white/70" rows="4" placeholder="Describe the concept or question you are stuck on." required></textarea>
+                        <button type="submit" class="bg-black text-white px-6 py-3 rounded-full font-bold">Post Doubt</button>
+                    </form>
+                </div>
+                <div id="forumPostsList" class="space-y-4"></div>
+            </div>
+
+            <div id="resources" class="tab-content max-w-6xl mx-auto">
+                <h2 class="text-5xl font-heading font-bold mb-10">Library</h2>
+                <div id="resourcesList" class="grid grid-cols-2 gap-6"></div>
+            </div>
+
+            <div id="studybot" class="tab-content max-w-6xl mx-auto">
+                <h2 class="text-5xl font-heading font-bold mb-10">AI Study Bot</h2>
+                <div class="glass-panel-tw rounded-3xl p-8">
+                    <p class="text-gray-600 mb-6">Ask for concept revision, a next-step suggestion, or help on a weak topic.</p>
+                    <form id="studyBotForm" class="flex gap-4 mb-6">
+                        <input id="studyBotPrompt" type="text" class="flex-1 rounded-2xl px-5 py-4 border border-white/50 bg-white/70" placeholder="How can I improve in Newton's laws?" required>
+                        <button type="submit" class="bg-black text-white px-8 py-4 rounded-2xl font-bold">Ask</button>
+                    </form>
+                    <div id="studyBotReply" class="rounded-2xl bg-white/70 p-6 text-gray-800">Your personalised guidance will appear here.</div>
+                    <div id="studyBotSuggestions" class="mt-4 flex flex-wrap gap-2"></div>
+                </div>
+            </div>
         </div>
     </div>
 
     <script>
         checkRole('student');
-        document.getElementById('userNameDisplay').innerText = localStorage.getItem('username');
+        document.getElementById('userNameDisplay').innerText = getDisplayName();
         let currentPoints = 0;
+        let currentInventory = [];
+        let currentAvatar = '🙂';
 
         function showTab(tabId, element) {
-            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove('bg-black', 'text-white', 'active');
-                b.classList.add('text-gray-500', 'hover:bg-white/60');
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(button => {
+                button.classList.remove('bg-black', 'text-white', 'active');
+                button.classList.add('text-gray-500', 'hover:bg-white/60');
             });
             document.getElementById(tabId).classList.add('active');
             element.classList.remove('text-gray-500', 'hover:bg-white/60');
@@ -122,105 +162,218 @@
             if (tabId === 'dashboard') loadDashboard();
             if (tabId === 'leaderboard') loadLeaderboard();
             if (tabId === 'shop') loadShop();
+            if (tabId === 'forum') loadForum();
+            if (tabId === 'resources') loadResources();
+        }
+
+        function renderAvatar(value) {
+            document.getElementById('navAvatar').textContent = value || '🙂';
         }
 
         async function loadDashboard() {
             const res = await fetchAPI('/student/dashboard');
-            const data = await res.json();
-            if (res.ok) {
-                document.getElementById('marksVal').innerText = data.total_marks;
-                document.getElementById('rankVal').innerText = '#' + data.rank;
-                document.getElementById('pointsVal').innerText = data.points;
-                document.getElementById('badgesVal').innerText = data.badges.join(', ') || 'Pending';
-                
-                currentPoints = data.points;
-                document.getElementById('navPoints').innerText = data.points;
-                document.getElementById('navLevel').innerText = data.level;
-                if(data.avatar) document.getElementById('navAvatar').src = data.avatar;
+            if (!res.ok) {
+                return;
             }
+            const data = await res.json();
+            document.getElementById('marksVal').innerText = data.total_marks;
+            document.getElementById('rankVal').innerText = `#${data.rank}`;
+            document.getElementById('pointsVal').innerText = data.points;
+            document.getElementById('badgesVal').innerText = data.badges.length ? data.badges.join(', ') : 'Pending';
+            currentPoints = data.points;
+            document.getElementById('navPoints').innerText = data.points;
+            document.getElementById('navLevel').innerText = data.level;
+            document.getElementById('shopBalance').innerText = data.points;
+            renderAvatar(data.avatar);
+            currentInventory = data.inventory || [];
+            currentAvatar = data.avatar || '🙂';
+            document.getElementById('levelProgressBar').style.width = `${data.level_progress_percent || 0}%`;
+            document.getElementById('pointsToNextLevel').innerText = 50 - (data.level_progress || 0);
+
+            const weakTopicsList = document.getElementById('weakTopicsList');
+            weakTopicsList.innerHTML = data.weak_topics.length
+                ? data.weak_topics.map(item => `<span class="px-3 py-1 rounded-full bg-red-50 text-red-500 text-xs font-semibold">${item.topic} · ${item.accuracy}%</span>`).join('')
+                : '<span class="px-3 py-1 rounded-full bg-green-50 text-green-600 text-xs font-semibold">No critical weak areas yet</span>';
+
+            const studyPlanList = document.getElementById('studyPlanList');
+            studyPlanList.innerHTML = data.study_plan.length
+                ? data.study_plan.map(step => `<div class="bg-white/60 rounded-2xl p-4">${step}</div>`).join('')
+                : '<div class="bg-white/60 rounded-2xl p-4">Your study plan will appear after you attempt a test.</div>';
 
             const testsRes = await fetchAPI('/student/upcoming-tests');
-            const testsData = await testsRes.json();
+            const testsData = testsRes.ok ? await testsRes.json() : [];
             const list = document.getElementById('upcomingTestsList');
             list.innerHTML = testsData.length ? '' : '<p class="text-gray-500 font-medium">No scheduled assessments.</p>';
-            testsData.forEach(t => {
-                list.innerHTML += `<div class="flex justify-between items-center bg-white/60 backdrop-blur-sm p-6 rounded-2xl border border-white hover:shadow-lg transition-all">
-                    <div><strong class="text-xl font-heading text-black">${t.test_name}</strong><br><span class="text-sm text-gray-500 font-medium">${new Date(t.date).toLocaleString()}</span></div>
-                    <button class="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-bold text-sm transition" onclick="startExam()">Commence</button>
-                </div>`;
+            testsData.forEach(test => {
+                list.innerHTML += `
+                    <div class="flex justify-between items-center bg-white/60 p-6 rounded-2xl border border-white">
+                        <div>
+                            <strong class="text-xl font-heading text-black">${test.test_name}</strong><br>
+                            <span class="text-sm text-gray-500 font-medium">${new Date(test.date).toLocaleString()} · ${test.topic || 'General'} · ${test.question_count || 0} questions</span>
+                            <p class="text-sm text-gray-500 mt-1">${test.description || 'Teacher-created practice test available in your bank.'}</p>
+                        </div>
+                        <button class="bg-black hover:bg-gray-800 text-white px-8 py-3 rounded-full font-bold text-sm transition" onclick="startExam()" ${test.status !== 'started' ? 'disabled style="opacity:0.55; cursor:not-allowed;"' : ''}>
+                            ${test.status === 'started' ? 'Commence' : 'Await Admin Start'}
+                        </button>
+                    </div>
+                `;
             });
         }
 
         async function loadLeaderboard() {
             const res = await fetchAPI('/student/leaderboard');
+            if (!res.ok) {
+                return;
+            }
             const data = await res.json();
             const body = document.getElementById('leaderboardBody');
             body.innerHTML = '';
-            data.forEach((e, index) => {
-                let rankStyle = "text-gray-400";
-                if(index === 0) rankStyle = "text-yellow-500 text-xl";
-                if(index === 1) rankStyle = "text-gray-500 text-lg";
-                if(index === 2) rankStyle = "text-amber-600 text-md";
-                
-                // Fallback avatar if none provided in mock data
-                let avatarSrc = e.avatar || 'public/images/avatars/spark.png';
-
-                // ADDED AVATAR IMAGE IN HTML HERE
-                body.innerHTML += `<tr class="hover:bg-white/40 transition-colors">
-                    <td class="p-6 font-bold ${rankStyle}">${e.rank}</td>
-                    <td class="p-6 font-semibold text-gray-800 flex items-center gap-4">
-                        <img src="${avatarSrc}" alt="Avatar" class="w-10 h-10 rounded-full object-cover shadow-sm border-2 border-white">
-                        ${e.name}
-                    </td>
-                    <td class="p-6 text-gray-600 font-medium">${e.marks}</td>
-                    <td class="p-6 font-bold text-blue-600">${e.points} SP</td>
-                </tr>`;
+            data.forEach((entry, index) => {
+                let rankStyle = 'text-gray-400';
+                if (index === 0) rankStyle = 'text-yellow-500 text-xl';
+                if (index === 1) rankStyle = 'text-gray-500 text-lg';
+                if (index === 2) rankStyle = 'text-amber-600 text-md';
+                body.innerHTML += `
+                    <tr class="hover:bg-white/40 transition-colors">
+                        <td class="p-6 font-bold ${rankStyle}">${entry.rank}</td>
+                        <td class="p-6 font-semibold text-gray-800">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-full bg-black text-white flex items-center justify-center">${entry.avatar || '🙂'}</div>
+                                ${entry.name}
+                            </div>
+                        </td>
+                        <td class="p-6 text-gray-600 font-medium">${entry.marks}</td>
+                        <td class="p-6 font-bold text-blue-600">${entry.points} SP</td>
+                    </tr>
+                `;
             });
         }
 
         function loadShop() {
             const store = [
-                { image: 'public/images/avatars/spark.png', name: 'The Spark', price: 0 },
-                { image: 'public/images/avatars/codex.png', name: 'The Codex', price: 150 },
-                { image: 'public/images/avatars/familiar.png', name: 'The Familiar', price: 400 },
-                { image: 'public/images/avatars/architect.png', name: 'The Architect', price: 800 },
-                { image: 'public/images/avatars/aura.png', name: 'The Aura', price: 1500 }
+                { avatar: '🙂', name: 'Calm Learner', price: 0 },
+                { avatar: '🤖', name: 'Codex Buddy', price: 100 },
+                { avatar: '🚀', name: 'Rocket Prep', price: 200 },
+                { avatar: '🧠', name: 'Mind Forge', price: 300 },
+                { avatar: '🦉', name: 'Night Scholar', price: 450 }
             ];
 
             const grid = document.getElementById('avatarStoreGrid');
             grid.innerHTML = '';
             store.forEach(item => {
+                const owned = currentInventory.includes(item.avatar);
+                const equipped = currentAvatar === item.avatar;
                 grid.innerHTML += `
-                <div class="glass-panel-tw p-5 rounded-3xl text-center hover:-translate-y-2 hover:shadow-xl transition-all duration-300">
-                    <img src="${item.image}" alt="${item.name}" class="w-full h-40 object-cover rounded-2xl mb-5 shadow-sm">
-                    <h4 class="font-heading font-bold text-xl text-black">${item.name}</h4>
-                    <p class="text-sm font-semibold text-gray-500 mb-5">${item.price} SP</p>
-                    <button class="w-full bg-black text-white font-bold py-3 rounded-xl text-sm hover:bg-gray-800 transition" 
-                            onclick="buyAvatar('${item.image}', ${item.price})">
-                        ${item.price === 0 ? 'Equip' : 'Acquire'}
-                    </button>
-                </div>`;
+                    <div class="glass-panel-tw p-5 rounded-3xl text-center">
+                        <div class="w-24 h-24 mx-auto rounded-full bg-black text-white flex items-center justify-center text-4xl mb-5">${item.avatar}</div>
+                        <h4 class="font-heading font-bold text-xl text-black">${item.name}</h4>
+                        <p class="text-sm font-semibold text-gray-500 mb-5">${item.price} SP</p>
+                        <button class="w-full bg-black text-white font-bold py-3 rounded-xl text-sm hover:bg-gray-800 transition" onclick="buyAvatar('${item.avatar}', ${item.price})">
+                            ${equipped ? 'Equipped' : owned ? 'Equip' : item.price === 0 ? 'Equip' : 'Acquire'}
+                        </button>
+                    </div>
+                `;
             });
         }
 
-        async function buyAvatar(imagePath, price) {
-            if(price > currentPoints && price !== 0) {
-                alert("Insufficient Study Points."); return;
+        async function buyAvatar(avatar, price) {
+            if (price > currentPoints && price !== 0) {
+                alert('Insufficient Study Points.');
+                return;
             }
             const res = await fetchAPI('/student/shop/buy', {
                 method: 'POST',
-                body: JSON.stringify({ avatar: imagePath, price: price })
+                body: JSON.stringify({ avatar, price })
             });
             const data = await res.json();
-            if(res.ok) {
-                loadDashboard();
-            } else {
-                alert(data.msg);
+            if (!res.ok) {
+                alert(data.msg || 'Could not complete this purchase.');
+                return;
             }
+            await loadDashboard();
+            loadShop();
         }
 
-        function startExam() { window.location.href = 'cbt_exam.html'; }
-        
+        async function loadForum() {
+            const res = await fetchAPI('/student/forum');
+            if (!res.ok) {
+                return;
+            }
+            const posts = await res.json();
+            const list = document.getElementById('forumPostsList');
+            list.innerHTML = posts.length ? '' : '<div class="glass-panel-tw rounded-3xl p-6">No doubts posted yet. Ask your first question.</div>';
+            posts.forEach(post => {
+                list.innerHTML += `
+                    <div class="glass-panel-tw rounded-3xl p-6">
+                        <div class="flex justify-between items-start gap-6">
+                            <div>
+                                <h3 class="font-heading font-bold text-xl">${post.student_name}</h3>
+                                <p class="text-gray-700 mt-3">${post.post}</p>
+                            </div>
+                            <div class="text-sm text-gray-500">${post.vote} votes</div>
+                        </div>
+                        <div class="mt-4 p-4 rounded-2xl ${post.reply ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}">
+                            ${post.reply ? `<strong>Teacher Reply:</strong> ${post.reply}` : 'Awaiting teacher response.'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        document.getElementById('forumForm').onsubmit = async (event) => {
+            event.preventDefault();
+            const res = await fetchAPI('/student/forum', {
+                method: 'POST',
+                body: JSON.stringify({ post: document.getElementById('forumPost').value })
+            });
+            if (!res.ok) {
+                alert('Could not post your doubt.');
+                return;
+            }
+            document.getElementById('forumForm').reset();
+            loadForum();
+        };
+
+        async function loadResources() {
+            const res = await fetchAPI('/student/resources');
+            if (!res.ok) {
+                return;
+            }
+            const resources = await res.json();
+            const list = document.getElementById('resourcesList');
+            list.innerHTML = resources.length ? '' : '<div class="glass-panel-tw rounded-3xl p-6">No resources available yet.</div>';
+            resources.forEach(resource => {
+                list.innerHTML += `
+                    <div class="glass-panel-tw rounded-3xl p-6">
+                        <div class="text-sm font-semibold text-blue-600 mb-2">${resource.topic}</div>
+                        <h3 class="font-heading text-2xl font-bold mb-3">${resource.title}</h3>
+                        <a href="${resource.file_url}" target="_blank" rel="noopener noreferrer" class="inline-block bg-black text-white px-5 py-3 rounded-full font-bold">Open Resource</a>
+                    </div>
+                `;
+            });
+        }
+
+        document.getElementById('studyBotForm').onsubmit = async (event) => {
+            event.preventDefault();
+            const prompt = document.getElementById('studyBotPrompt').value;
+            const res = await fetchAPI('/student/chatbot', {
+                method: 'POST',
+                body: JSON.stringify({ query: prompt })
+            });
+            if (!res.ok) {
+                alert('The study bot could not respond right now.');
+                return;
+            }
+            const data = await res.json();
+            document.getElementById('studyBotReply').textContent = data.reply;
+            const suggestions = document.getElementById('studyBotSuggestions');
+            suggestions.innerHTML = (data.suggestions || []).map(item => `<span class="px-3 py-1 rounded-full bg-blue-50 text-blue-600 text-sm font-semibold">${item}</span>`).join('');
+        };
+
+        function startExam() {
+            window.location.href = 'cbt_exam.html';
+        }
+
         loadDashboard();
     </script>
 </body>

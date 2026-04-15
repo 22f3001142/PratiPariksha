@@ -24,13 +24,6 @@
 
         h1, h2, h3, .font-heading { font-family: var(--font-heading); letter-spacing: -0.02em; }
 
-        /* The Aurora Gradient Background Effects - Light Mode Palette */
-        .aurora-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; overflow: hidden; }
-        .blob { position: absolute; filter: blur(120px); opacity: 0.25; border-radius: 50%; }
-        .blob-1 { top: -10%; left: -10%; width: 50vw; height: 50vw; background: var(--accent); } 
-        .blob-2 { bottom: -20%; right: -10%; width: 60vw; height: 60vw; background: var(--pink); } 
-        .blob-3 { top: 30%; left: 30%; width: 40vw; height: 40vw; background: #7928CA; } 
-
         /* Light Glassmorphism */
         .glass-panel {
             background: rgba(255, 255, 255, 0.6);
@@ -62,13 +55,6 @@
     </style>
 </head>
 <body onload="enterFullscreen()" class="flex flex-col relative">
-
-    <!-- Background Auroras -->
-    <div class="aurora-bg">
-        <div class="blob blob-1"></div>
-        <div class="blob blob-2"></div>
-        <div class="blob blob-3"></div>
-    </div>
 
     <!-- Modals -->
     <div id="moodbot-popup" class="fixed inset-0 bg-white/40 backdrop-blur-xl z-50 flex items-center justify-center p-6">
@@ -133,7 +119,7 @@
         let timerSeconds = 3600;
         let timerInterval = null;
 
-        document.getElementById('studentNameDisplay').innerText = localStorage.getItem('username') || "Student";
+        document.getElementById('studentNameDisplay').innerText = getDisplayName();
 
         async function enterFullscreen() {
             try {
@@ -144,6 +130,10 @@
         }
 
         async function selectMood(mood) {
+            await fetchAPI('/exam/mood', {
+                method: 'POST',
+                body: JSON.stringify({ mood })
+            });
             const reply = document.getElementById('moodReply');
             if (mood === 'Suboptimal') {
                 reply.innerText = "State logged. Proceed with care.";
@@ -163,7 +153,13 @@
 
         async function loadQuestions() {
             const res = await fetchAPI('/exam/questions');
-            questions = await res.json();
+            const data = await res.json();
+            if (!res.ok) {
+                document.getElementById('qContent').innerText = data.msg || 'Exam is not available right now.';
+                document.getElementById('optionsList').innerHTML = '';
+                return;
+            }
+            questions = data;
             renderNavigator();
             showQuestion(0);
         }
@@ -234,8 +230,19 @@
 
         async function submitExam() {
             if (!confirm('Submit?')) return;
-            const res = await fetchAPI('/exam/submit', { method: 'POST', body: JSON.stringify({}) });
+            const payload = questions.map((question, index) => ({
+                question_id: question.id,
+                answer: responses[index] || ''
+            })).filter(item => item.answer !== '');
+            const res = await fetchAPI('/exam/submit', {
+                method: 'POST',
+                body: JSON.stringify({ responses: payload })
+            });
             const data = await res.json();
+            if (!res.ok) {
+                alert(data.msg || 'Could not submit the exam.');
+                return;
+            }
             
             const overlay = document.createElement('div');
             overlay.className = 'fixed inset-0 bg-white/60 backdrop-blur-2xl z-50 flex items-center justify-center p-6';
@@ -244,8 +251,9 @@
                     <h1 class="text-4xl font-heading font-bold mb-2 text-gray-900">Complete</h1>
                     <p class="text-gray-400 mb-10 text-lg font-semibold tracking-tight">Assessment session finalized.</p>
                     <div class="bg-gray-50/50 p-8 rounded-3xl mb-10 border border-white">
-                        <div class="text-[0.6rem] text-gray-400 uppercase tracking-[0.2em] font-black mb-2">Study Points Earned</div>
-                        <div class="text-5xl font-heading font-bold text-black">+240 SP</div>
+                        <div class="text-[0.6rem] text-gray-400 uppercase tracking-[0.2em] font-black mb-2">Result</div>
+                        <div class="text-5xl font-heading font-bold text-black">${data.score} correct</div>
+                        <div class="mt-3 text-lg font-semibold text-blue-600">+${data.points_earned} SP earned</div>
                     </div>
                     <button onclick="window.location.href='student_portal.html'" class="w-full bg-black text-white font-bold py-5 rounded-2xl hover:opacity-80 transition shadow-lg">Return to Dashboard</button>
                 </div>
