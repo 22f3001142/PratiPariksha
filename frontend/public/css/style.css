@@ -1,0 +1,93 @@
+/* Import modern fonts */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary: #000000;       /* Sleek black */
+    --secondary: #6b7280;     /* Modern gray */
+    --accent: #00c6ff;        /* Vibrant blue */
+    --success: #10b981;       /* Emerald green */
+    --warning: #f5d020;       /* Bright yellow */
+    --danger: #ff5858;        /* Soft red */
+    --light: #f9fafb;
+    --dark: #111827;
+    --font-heading: 'Space Grotesk', sans-serif;
+    --font-body: 'Poppins', sans-serif;
+}
+
+body {
+    font-family: var(--font-body);
+    margin: 0;
+    background-color: #fbfbfd;
+    color: #1d1d1f;
+    min-height: 100vh;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+}
+
+/* Glassmorphism Navbar for non-Tailwind pages */
+nav {
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    padding: 1rem 2.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+nav .brand { font-size: 1.5rem; font-weight: bold; font-family: var(--font-heading); color: var(--primary); }
+nav .links a { color: var(--secondary); text-decoration: none; margin-left: 1.5rem; font-weight: 500; transition: color 0.2s; }
+nav .links a:hover { color: var(--primary); }
+
+.container { max-width: 1240px; margin: 2rem auto; padding: 0 1.25rem; }
+
+/* Light Glassmorphism Card for Login/About pages */
+.card {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.75);
+    padding: 2.5rem;
+    border-radius: 28px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+    margin-bottom: 1.5rem;
+}
+
+/* Modern Rounded Buttons */
+.btn { 
+    padding: 0.75rem 1.5rem; 
+    border: none; 
+    border-radius: 50px; 
+    cursor: pointer; 
+    font-weight: 600; 
+    font-family: var(--font-body); 
+    transition: all 0.2s ease; 
+}
+.btn-primary { background-color: var(--primary); color: white; }
+.btn-primary:hover { background-color: #333; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+/* Clean Input Fields */
+input, select, textarea {
+    background: rgba(255,255,255,0.95);
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    padding: 1rem 1.1rem;
+    font-family: var(--font-body);
+    outline: none;
+    transition: all 0.2s;
+    width: 100%;
+    box-sizing: border-box;
+}
+input:focus, select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(0,0,0,0.05); }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 1rem; text-align: left; border-bottom: 1px solid #eee; }
+th { font-family: var(--font-body); color: var(--secondary); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em; }

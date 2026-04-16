@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>PratiPariksha | Teacher Portal</title>
+    <link rel="stylesheet" href="public/css/style.css">
+    <script src="public/js/common.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.5rem; }
+        .tab-btn { padding: 0.75rem 1.5rem; cursor: pointer; border-bottom: 2px solid transparent; }
+        .tab-btn.active { border-bottom: 2px solid var(--accent); }
+        .tab-content { display: none; padding-top: 2rem; }
+        .tab-content.active { display: block; }
+        .chart-container { height: 320px; }
+        .two-col { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 1.5rem; }
+        .pill { display: inline-block; padding: 0.35rem 0.75rem; border-radius: 999px; background: rgba(52, 152, 219, 0.12); color: #1f6ea9; font-size: 0.85rem; margin: 0.2rem 0.3rem 0 0; }
+        .question-card { border: 1px solid rgba(0, 0, 0, 0.08); border-radius: 18px; padding: 1rem; margin-top: 1rem; }
+        .student-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; }
+        .muted { color: #667085; }
+        textarea, input, select { width: 100%; }
+        .subtopic-section { margin-top: 1.25rem; }
+    </style>
+</head>
+<body>
+    <nav>
+        <div class="brand">PratiPariksha - Teacher Portal</div>
+        <div class="links">
+            <a href="index.html">Home</a>
+            <span id="userNameDisplay"></span>
+            <a href="#" onclick="logout()">Logout</a>
+        </div>
+    </nav>
+    <div class="container">
+        <div class="tabs">
+            <span class="tab-btn active" onclick="showTab('analytics', this)">Analytical Dashboard</span>
+            <span class="tab-btn" onclick="showTab('questions', this)">Question Bank</span>
+            <span class="tab-btn" onclick="showTab('tests', this)">Test Builder</span>
+            <span class="tab-btn" onclick="showTab('forum', this)">Forum Access</span>
+            <span class="tab-btn" onclick="showTab('resources', this)">Resources</span>
+        </div>
+
+        <div id="analytics" class="tab-content active">
+            <h2>Analytical Dashboard</h2>
+            <div class="dashboard-grid">
+                <div class="card stat-card" style="text-align:center;">
+                    <h3>Average Marks</h3>
+                    <div class="value" id="avgMarks" style="font-size:3rem; color:var(--accent);">0</div>
+                </div>
+                <div class="card stat-card" style="text-align:center;">
+                    <h3>Average Accuracy</h3>
+                    <div class="value" id="avgAccuracy" style="font-size:3rem; color:var(--success);">0%</div>
+                </div>
+            </div>
+
+            <div class="two-col" style="margin-top:1.5rem;">
+                <div class="card chart-container">
+                    <h3>IRT Snapshot</h3>
+                    <canvas id="irtChart"></canvas>
+                </div>
+                <div class="card">
+                    <h3>Whole-Class Weak Areas</h3>
+                    <div id="weakTopicsList" class="muted">No weak areas identified yet.</div>
+                </div>
+            </div>
+
+            <div class="card" style="margin-top:1.5rem;">
+                <h3>Student Improvement Plans</h3>
+                <div id="studentInsights" class="student-grid"></div>
+            </div>
+        </div>
+
+        <div id="questions" class="tab-content">
+            <h2>Question Bank</h2>
+            <div class="two-col">
+                <div class="card">
+                    <h3>Add New Question</h3>
+                    <form id="addQForm">
+                        <textarea id="qText" style="height:120px;" placeholder="Question text" required></textarea><br><br>
+                        <div class="dashboard-grid">
+                            <div>
+                                <label>Question Type</label>
+                                <select id="qType" onchange="toggleOptions()" required>
+                                    <option value="MCQ">MCQ</option>
+                                    <option value="MSQ">MSQ</option>
+                                    <option value="NAT">NAT</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Difficulty</label>
+                                <input type="number" id="qDiff" value="1" min="1" max="5" required>
+                            </div>
+                        </div><br>
+                        <div class="dashboard-grid">
+                            <div>
+                                <label>Topic</label>
+                                <input type="text" id="qTopic" placeholder="Mathematics" required>
+                            </div>
+                            <div>
+                                <label>Subtopic</label>
+                                <input type="text" id="qSubtopic" placeholder="Linear Equations" required>
+                            </div>
+                        </div><br>
+                        <div id="optionsDiv">
+                            <label>Options</label>
+                            <input type="text" class="opt" placeholder="Option 1"><br><br>
+                            <input type="text" class="opt" placeholder="Option 2"><br><br>
+                            <input type="text" class="opt" placeholder="Option 3"><br><br>
+                            <input type="text" class="opt" placeholder="Option 4">
+                        </div><br>
+                        <label>Correct Answer</label>
+                        <input type="text" id="qCorrect" placeholder="Correct answer" required><br><br>
+                        <label>Teacher Explanation</label>
+                        <textarea id="qExplanation" style="height:90px;" placeholder="Explain the logic or method behind the answer."></textarea><br><br>
+                        <button type="submit" class="btn btn-primary">Save Question</button>
+                    </form>
+                </div>
+
+                <div class="card">
+                    <h3>Browse Topicwise</h3>
+                    <p class="muted">Your bank is filtered to Mathematics by default.</p>
+                    <div class="dashboard-grid">
+                        <div>
+                            <label>Topic Filter</label>
+                            <select id="questionTopicFilter"></select>
+                        </div>
+                        <div>
+                            <label>Subtopic Filter</label>
+                            <select id="questionSubtopicFilter"></select>
+                        </div>
+                    </div><br>
+                    <button class="btn btn-secondary" onclick="loadQuestions()">Apply Filter</button>
+                    <div id="questionsList"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="tests" class="tab-content">
+            <h2>Test Builder</h2>
+            <div class="two-col">
+                <div class="card">
+                    <h3>Create A Test From The Bank</h3>
+                    <form id="createTestForm">
+                        <label>Test Title</label>
+                        <input type="text" id="testTitle" placeholder="Kinematics Practice Set" required><br><br>
+                        <label>Topic</label>
+                        <input type="text" id="testTopic" placeholder="Mathematics"><br><br>
+                        <label>Description</label>
+                        <textarea id="testDescription" style="height:90px;" placeholder="What should this test reinforce?"></textarea><br><br>
+                        <p class="muted">Select questions from the live question bank below, then create the test.</p>
+                        <div id="testBuilderQuestions"></div><br>
+                        <button type="submit" class="btn btn-primary">Create Test</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>Saved Tests</h3>
+                    <div id="savedTestsList" class="muted">No tests yet.</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="forum" class="tab-content">
+            <h2>Forum Access</h2>
+            <div id="forumPostsList"></div>
+        </div>
+
+        <div id="resources" class="tab-content">
+            <h2>Resource Library</h2>
+            <div class="two-col">
+                <div class="card">
+                    <h3>Add Resource</h3>
+                    <form id="resourceForm">
+                        <label>Title</label>
+                        <input type="text" id="resourceTitle" placeholder="Electrostatics Crash Notes" required><br><br>
+                        <label>Topic</label>
+                        <input type="text" id="resourceTopic" placeholder="Mathematics" required><br><br>
+                        <label>Link</label>
+                        <input type="url" id="resourceUrl" placeholder="https://example.com/notes" required><br><br>
+                        <button type="submit" class="btn btn-primary">Add Resource</button>
+                    </form>
+                </div>
+                <div class="card">
+                    <h3>Uploaded Resources</h3>
+                    <div id="resourcesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        checkRole('teacher');
+        document.getElementById('userNameDisplay').innerText = `Welcome, ${getDisplayName()}`;
+
+        let irtChartInstance = null;
+        let cachedQuestions = [];
+        let cachedTopics = [];
+        let teacherSubject = 'Mathematics';
+
+        function showTab(tabId, element) {
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(button => button.classList.remove('active'));
+            document.getElementById(tabId).classList.add('active');
+            element.classList.add('active');
+
+            if (tabId === 'analytics') loadAnalytics();
+            if (tabId === 'questions') {
+                loadQuestionTopics();
+                loadQuestions();
+            }
+            if (tabId === 'tests') {
+                loadQuestionsForTestBuilder();
+                loadSavedTests();
+            }
+            if (tabId === 'forum') loadForum();
+            if (tabId === 'resources') loadResources();
+        }
+
+        async function loadAnalytics() {
+            const res = await fetchAPI('/teacher/analytics');
+            if (!res.ok) {
+                return;
+            }
+            const data = await res.json();
+            teacherSubject = data.subject || 'Mathematics';
+            document.getElementById('avgMarks').innerText = data.avg_marks;
+            document.getElementById('avgAccuracy').innerText = `${data.avg_accuracy}%`;
+            document.getElementById('qTopic').value = teacherSubject;
+            document.getElementById('testTopic').value = teacherSubject;
+            document.getElementById('resourceTopic').value = teacherSubject;
+
+            const weakTopicsList = document.getElementById('weakTopicsList');
+            weakTopicsList.innerHTML = data.weak_topics.length
+                ? data.weak_topics.map(item => `<div class="pill">${item.topic} · ${item.accuracy}% accuracy</div>`).join('')
+                : 'No weak areas identified yet.';
+
+            const insights = document.getElementById('studentInsights');
+            insights.innerHTML = data.student_abilities.length ? '' : '<p class="muted">No student analytics yet. Once students attempt tests, their IRT and study plans will appear here.</p>';
+            data.student_abilities.forEach(student => {
+                insights.innerHTML += `
+                    <div class="card">
+                        <h4>${student.student_name}</h4>
+                        <p class="muted">${student.student_id} · ${student.accuracy}% accuracy · ability ${student.ability_estimate}</p>
+                        <p><strong>Weak Areas:</strong> ${student.weak_topics.length ? student.weak_topics.map(topic => topic.topic).join(', ') : 'No clear weak areas yet.'}</p>
+                        <p><strong>AI Suggestions:</strong></p>
+                        <ul>
+                            ${student.improvement_areas.map(area => `<li>${area}</li>`).join('')}
+                        </ul>
+                        <p><strong>Personalised Plan:</strong></p>
+                        <ul>
+                            ${student.study_plan.map(step => `<li>${step}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+
+            const ctx = document.getElementById('irtChart').getContext('2d');
+            if (irtChartInstance) {
+                irtChartInstance.destroy();
+            }
+            irtChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.irt_analysis.map(item => item.subtopic || item.topic_label),
+                    datasets: [
+                        {
+                            label: 'Difficulty Index',
+                            data: data.irt_analysis.map(item => item.difficulty_index),
+                            backgroundColor: 'rgba(52, 152, 219, 0.7)'
+                        },
+                        {
+                            label: 'Discrimination Index',
+                            data: data.irt_analysis.map(item => item.discrimination_index),
+                            backgroundColor: 'rgba(46, 204, 113, 0.7)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: { y: { beginAtZero: true, max: 1 } },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                title(context) {
+                                    const item = data.irt_analysis[context[0].dataIndex];
+                                    return item.subtopic || item.topic_label;
+                                },
+                                afterTitle(context) {
+                                    const item = data.irt_analysis[context[0].dataIndex];
+                                    return item.topic_label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function toggleOptions() {
+            const type = document.getElementById('qType').value;
+            document.getElementById('optionsDiv').style.display = type === 'NAT' ? 'none' : 'block';
+        }
+
+        async function loadQuestionTopics() {
+            const res = await fetchAPI('/teacher/question-topics');
+            if (!res.ok) {
+                return;
+            }
+            cachedTopics = await res.json();
+            const topicFilter = document.getElementById('questionTopicFilter');
+            topicFilter.innerHTML = '<option value="">All Topics</option>' + cachedTopics.map(item => `<option value="${item.topic}">${item.topic}</option>`).join('');
+            if (cachedTopics.some(item => item.topic === teacherSubject)) {
+                topicFilter.value = teacherSubject;
+            }
+            populateSubtopicFilter();
+        }
+
+        function populateSubtopicFilter() {
+            const selectedTopic = document.getElementById('questionTopicFilter').value;
+            const subtopicFilter = document.getElementById('questionSubtopicFilter');
+            const topic = cachedTopics.find(item => item.topic === selectedTopic);
+            const subtopics = topic ? topic.subtopics : [];
+            subtopicFilter.innerHTML = '<option value="">All Subtopics</option>' + subtopics.map(item => `<option value="${item}">${item}</option>`).join('');
+        }
+
+        document.getElementById('questionTopicFilter').addEventListener('change', () => {
+            populateSubtopicFilter();
+        });
+
+        document.getElementById('addQForm').onsubmit = async (event) => {
+            event.preventDefault();
+            const type = document.getElementById('qType').value;
+            const options = Array.from(document.querySelectorAll('.opt')).map(input => input.value.trim()).filter(Boolean);
+            const body = {
+                question: document.getElementById('qText').value,
+                type,
+                options: type === 'NAT' ? [] : options,
+                correct_answer: document.getElementById('qCorrect').value,
+                difficulty_level: parseInt(document.getElementById('qDiff').value, 10),
+                topic: document.getElementById('qTopic').value,
+                subtopic: document.getElementById('qSubtopic').value,
+                explanation: document.getElementById('qExplanation').value
+            };
+            const res = await fetchAPI('/teacher/questions', { method: 'POST', body: JSON.stringify(body) });
+            if (!res.ok) {
+                alert('Could not save question.');
+                return;
+            }
+            document.getElementById('addQForm').reset();
+            document.getElementById('qTopic').value = teacherSubject;
+            toggleOptions();
+            await loadQuestionTopics();
+            await loadQuestions();
+            await loadQuestionsForTestBuilder();
+            alert('Question saved to the bank.');
+        };
+
+        async function loadQuestions() {
+            const topic = document.getElementById('questionTopicFilter').value;
+            const subtopic = document.getElementById('questionSubtopicFilter').value;
+            const params = new URLSearchParams();
+            if (topic) params.set('topic', topic);
+            if (subtopic) params.set('subtopic', subtopic);
+            const res = await fetchAPI(`/teacher/questions${params.toString() ? `?${params.toString()}` : ''}`);
+            if (!res.ok) {
+                return;
+            }
+            const data = await res.json();
+            cachedQuestions = data;
+            const list = document.getElementById('questionsList');
+            list.innerHTML = data.length ? '' : '<p class="muted">No questions found for this filter.</p>';
+            const grouped = {};
+            data.forEach(question => {
+                const group = question.subtopic || 'General';
+                if (!grouped[group]) {
+                    grouped[group] = [];
+                }
+                grouped[group].push(question);
+            });
+            Object.entries(grouped).forEach(([subtopicName, questions]) => {
+                list.innerHTML += `<div class="subtopic-section"><h4>${subtopicName}</h4></div>`;
+                questions.forEach(question => {
+                    list.innerHTML += `
+                        <div class="question-card">
+                            <div><strong>Q${question.id}</strong> <span class="pill">${question.topic}</span> <span class="pill">${question.subtopic}</span></div>
+                            <p style="margin:0.75rem 0;">${question.question}</p>
+                            <p class="muted">Type: ${question.type} · Difficulty: ${question.difficulty_level}</p>
+                            <p><strong>Correct Answer:</strong> ${question.correct_answer}</p>
+                            <p class="muted">${question.explanation || 'No explanation added yet.'}</p>
+                        </div>
+                    `;
+                });
+            });
+        }
+
+        async function loadQuestionsForTestBuilder() {
+            const params = new URLSearchParams();
+            if (teacherSubject) {
+                params.set('topic', teacherSubject);
+            }
+            const res = await fetchAPI(`/teacher/questions?${params.toString()}`);
+            if (!res.ok) {
+                return;
+            }
+            const questions = await res.json();
+            const container = document.getElementById('testBuilderQuestions');
+            container.innerHTML = questions.length ? '' : '<p class="muted">Add questions first to build a test.</p>';
+            questions.forEach(question => {
+                container.innerHTML += `
+                    <label class="question-card" style="display:block; cursor:pointer;">
+                        <input type="checkbox" class="test-question" value="${question.id}">
+                        <strong style="margin-left:0.5rem;">${question.topic} / ${question.subtopic}</strong>
+                        <p style="margin-top:0.75rem;">${question.question}</p>
+                    </label>
+                `;
+            });
+        }
+
+        document.getElementById('createTestForm').onsubmit = async (event) => {
+            event.preventDefault();
+            const selected = Array.from(document.querySelectorAll('.test-question:checked')).map(input => parseInt(input.value, 10));
+            const payload = {
+                title: document.getElementById('testTitle').value,
+                topic: document.getElementById('testTopic').value || teacherSubject,
+                description: document.getElementById('testDescription').value,
+                question_ids: selected
+            };
+            const res = await fetchAPI('/teacher/tests', { method: 'POST', body: JSON.stringify(payload) });
+            const data = await res.json();
+            if (!res.ok) {
+                alert(data.msg || 'Could not create the test.');
+                return;
+            }
+            document.getElementById('createTestForm').reset();
+            document.getElementById('testTopic').value = teacherSubject;
+            document.querySelectorAll('.test-question').forEach(input => { input.checked = false; });
+            await loadSavedTests();
+            alert('Test created successfully.');
+        };
+
+        async function loadSavedTests() {
+            const res = await fetchAPI('/teacher/tests');
+            if (!res.ok) {
+                return;
+            }
+            const tests = await res.json();
+            const list = document.getElementById('savedTestsList');
+            list.innerHTML = tests.length ? '' : '<p class="muted">No saved tests yet.</p>';
+            tests.forEach(test => {
+                list.innerHTML += `
+                    <div class="question-card">
+                        <strong>${test.title}</strong>
+                        <p class="muted">${test.topic} · ${test.question_count} questions</p>
+                        <p>${test.description || 'No description added.'}</p>
+                    </div>
+                `;
+            });
+        }
+
+        async function loadForum() {
+            const res = await fetchAPI('/teacher/forum');
+            if (!res.ok) {
+                return;
+            }
+            const data = await res.json();
+            const list = document.getElementById('forumPostsList');
+            list.innerHTML = data.length ? '' : '<div class="card">No student doubts yet.</div>';
+            data.forEach(post => {
+                list.innerHTML += `
+                    <div class="card" style="margin-top:1rem;">
+                        <strong>${post.student_name}</strong>
+                        <p class="muted">${post.student_id}</p>
+                        <p>${post.post}</p>
+                        <div style="margin-top:1rem;">
+                            <textarea id="reply_${post.id}" placeholder="Type your response..." style="height:80px;">${post.reply || ''}</textarea><br><br>
+                            <button class="btn btn-success" onclick="replyForum(${post.id})">${post.reply ? 'Update Reply' : 'Reply'}</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function replyForum(postId) {
+            const reply = document.getElementById(`reply_${postId}`).value;
+            const res = await fetchAPI(`/teacher/forum/reply/${postId}`, {
+                method: 'POST',
+                body: JSON.stringify({ reply })
+            });
+            if (!res.ok) {
+                alert('Could not save the reply.');
+                return;
+            }
+            alert('Reply saved.');
+            loadForum();
+        }
+
+        document.getElementById('resourceForm').onsubmit = async (event) => {
+            event.preventDefault();
+            const payload = {
+                title: document.getElementById('resourceTitle').value,
+                topic: document.getElementById('resourceTopic').value || teacherSubject,
+                file_url: document.getElementById('resourceUrl').value
+            };
+            const res = await fetchAPI('/teacher/resources', { method: 'POST', body: JSON.stringify(payload) });
+            if (!res.ok) {
+                alert('Could not add resource.');
+                return;
+            }
+            document.getElementById('resourceForm').reset();
+            document.getElementById('resourceTopic').value = teacherSubject;
+            loadResources();
+        };
+
+        async function loadResources() {
+            const res = await fetchAPI('/teacher/resources');
+            if (!res.ok) {
+                return;
+            }
+            const resources = await res.json();
+            const list = document.getElementById('resourcesList');
+            list.innerHTML = resources.length ? '' : '<p class="muted">No resources uploaded yet.</p>';
+            resources.forEach(resource => {
+                list.innerHTML += `
+                    <div class="question-card">
+                        <strong>${resource.title}</strong>
+                        <p class="muted">${resource.topic}</p>
+                        <a href="${resource.file_url}" target="_blank" rel="noopener noreferrer">${resource.file_url}</a>
+                    </div>
+                `;
+            });
+        }
+
+        toggleOptions();
+        loadAnalytics();
+    </script>
+</body>
+</html>
