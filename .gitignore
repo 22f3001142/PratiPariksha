@@ -1,6 +1,15 @@
+# OS specific
+.DS_Store
+Thumbs.db
+
+# Python specific
 .venv/
+venv/
 __pycache__/
 *.pyc
+
+# Secrets (CRITICAL: Do not upload your Gemini Key!)
 .env
-instance/
-.DS_Store
+
+# Database (Do not upload your local DB file)
+backend/instance/*.db
