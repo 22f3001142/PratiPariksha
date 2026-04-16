@@ -3,18 +3,62 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from .models import db
 import os
+from pathlib import Path
 from dotenv import load_dotenv
-from sqlalchemy import inspect, text
+from sqlalchemy import event, inspect, text
+from sqlalchemy.exc import OperationalError
 
 # Get the absolute path to .env file
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../.env'))
 load_dotenv(dotenv_path=env_path)
 
 
+def normalize_database_uri(database_uri, project_root):
+    if database_uri.startswith('sqlite:///') and not database_uri.startswith('sqlite:////'):
+        sqlite_path = database_uri[len('sqlite:///'):]
+        if not os.path.isabs(sqlite_path):
+            sqlite_path = os.path.join(project_root, sqlite_path)
+        database_uri = f"sqlite:///{os.path.abspath(sqlite_path)}"
+    return database_uri
+
+
+def sqlite_db_path(database_uri):
+    if database_uri.startswith('sqlite:///'):
+        return Path(database_uri[len('sqlite:///'):]).resolve()
+    return None
+
+
+def recover_sqlite_journal(database_uri):
+    db_path = sqlite_db_path(database_uri)
+    if not db_path:
+        return False
+
+    journal_path = db_path.with_name(f"{db_path.name}-journal")
+    if not journal_path.exists():
+        return False
+
+    backup_path = journal_path.with_name(f"{journal_path.name}.stale")
+    counter = 1
+    while backup_path.exists():
+        backup_path = journal_path.with_name(f"{journal_path.name}.stale{counter}")
+        counter += 1
+
+    os.replace(journal_path, backup_path)
+    return True
+
+
 def ensure_schema_updates(app):
     with app.app_context():
-        db.create_all()
-        inspector = inspect(db.engine)
+        try:
+            db.create_all()
+            inspector = inspect(db.engine)
+        except OperationalError as exc:
+            if 'disk I/O error' not in str(exc) or not recover_sqlite_journal(app.config['SQLALCHEMY_DATABASE_URI']):
+                raise
+            db.session.remove()
+            db.engine.dispose()
+            db.create_all()
+            inspector = inspect(db.engine)
 
         if 'questions' in inspector.get_table_names():
             question_columns = {column['name'] for column in inspector.get_columns('questions')}
@@ -50,6 +94,20 @@ def ensure_schema_updates(app):
 
         db.session.commit()
 
+
+def configure_sqlite_connection(app):
+    database_uri = app.config['SQLALCHEMY_DATABASE_URI']
+    if not database_uri.startswith('sqlite:///'):
+        return
+
+    @event.listens_for(db.engine, 'connect')
+    def set_sqlite_pragmas(dbapi_connection, _connection_record):
+        cursor = dbapi_connection.cursor()
+        cursor.execute('PRAGMA foreign_keys=ON')
+        cursor.execute('PRAGMA journal_mode=MEMORY')
+        cursor.execute('PRAGMA temp_store=MEMORY')
+        cursor.close()
+
 def create_app():
     # 1. Define paths for Frontend and Database
     # basedir = .../backend/app
@@ -69,9 +127,7 @@ def create_app():
         or os.getenv('SQLALCHEMY_DATABASE_URI')
         or f'sqlite:///{db_path}'
     )
-    if database_uri.startswith('sqlite:///') and not database_uri.startswith('sqlite:////'):
-        sqlite_path = database_uri[len('sqlite:///'):]
-        database_uri = f"sqlite:///{os.path.join(project_root, sqlite_path)}"
+    database_uri = normalize_database_uri(database_uri, project_root)
     app.config['SQLALCHEMY_DATABASE_URI'] = database_uri
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
@@ -87,6 +143,8 @@ def create_app():
     db.init_app(app)
     JWTManager(app)
     CORS(app)
+    with app.app_context():
+        configure_sqlite_connection(app)
     ensure_schema_updates(app)
 
     # 4. Register Blueprints
@@ -95,12 +153,14 @@ def create_app():
     from .api.teacher import teacher_bp
     from .api.admin import admin_bp
     from .api.exam import exam_bp
+    from focus_mode import create_focus_mode_blueprint
 
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(student_bp, url_prefix='/api/student')
     app.register_blueprint(teacher_bp, url_prefix='/api/teacher')
     app.register_blueprint(admin_bp, url_prefix='/api/admin')
     app.register_blueprint(exam_bp, url_prefix='/api/exam')
+    app.register_blueprint(create_focus_mode_blueprint(), url_prefix='/api/focus-mode')
 
     # 5. Frontend Routing
     @app.route('/')

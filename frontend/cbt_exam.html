@@ -74,7 +74,11 @@
     <!-- Header -->
     <header class="glass-panel border-b border-gray-100 px-10 py-5 flex justify-between items-center z-10">
         <div class="text-2xl font-heading font-bold text-gray-900">PratiPariksha <span class="text-gray-300 ml-2 font-light">/</span> <span class="text-gray-500 text-lg ml-2 font-medium" id="studentNameDisplay">Candidate</span></div>
-        <div class="text-3xl font-heading font-bold tracking-tight text-gray-900" id="timer">00:00:00</div>
+        <div class="flex items-center gap-4">
+            <span id="focusModeStatus" class="px-4 py-2 rounded-full bg-gray-100 text-gray-500 text-sm font-bold tracking-wide uppercase">Focus Off</span>
+            <button id="focusModeBtn" class="px-5 py-3 rounded-2xl bg-black text-white font-bold hover:opacity-80 transition" onclick="toggleFocusMode()">Enable Focus Mode</button>
+            <div class="text-3xl font-heading font-bold tracking-tight text-gray-900" id="timer">00:00:00</div>
+        </div>
     </header>
 
     <!-- Main Workspace -->
@@ -118,6 +122,8 @@
         let marked = {};
         let timerSeconds = 3600;
         let timerInterval = null;
+        let focusModeSessionId = null;
+        let focusModeHeartbeatInterval = null;
 
         document.getElementById('studentNameDisplay').innerText = getDisplayName();
 
@@ -162,6 +168,102 @@
             questions = data;
             renderNavigator();
             showQuestion(0);
+        }
+
+        function syncFocusModeUI(active) {
+            const status = document.getElementById('focusModeStatus');
+            const button = document.getElementById('focusModeBtn');
+            if (active) {
+                status.innerText = 'Focus On';
+                status.className = 'px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold tracking-wide uppercase';
+                button.innerText = 'Disable Focus Mode';
+                button.className = 'px-5 py-3 rounded-2xl bg-emerald-600 text-white font-bold hover:opacity-80 transition';
+            } else {
+                status.innerText = 'Focus Off';
+                status.className = 'px-4 py-2 rounded-full bg-gray-100 text-gray-500 text-sm font-bold tracking-wide uppercase';
+                button.innerText = 'Enable Focus Mode';
+                button.className = 'px-5 py-3 rounded-2xl bg-black text-white font-bold hover:opacity-80 transition';
+            }
+        }
+
+        function startFocusHeartbeat() {
+            stopFocusHeartbeat();
+            if (!focusModeSessionId) return;
+            focusModeHeartbeatInterval = setInterval(async () => {
+                await fetchAPI('/focus-mode/heartbeat', {
+                    method: 'POST',
+                    body: JSON.stringify({ session_id: focusModeSessionId })
+                });
+            }, 30000);
+        }
+
+        function stopFocusHeartbeat() {
+            if (focusModeHeartbeatInterval) {
+                clearInterval(focusModeHeartbeatInterval);
+                focusModeHeartbeatInterval = null;
+            }
+        }
+
+        async function refreshFocusModeStatus() {
+            const res = await fetchAPI('/focus-mode/status');
+            if (!res.ok) {
+                syncFocusModeUI(false);
+                return;
+            }
+            const data = await res.json();
+            focusModeSessionId = data.session?.session_id || null;
+            syncFocusModeUI(Boolean(data.active));
+            if (data.active) {
+                startFocusHeartbeat();
+            } else {
+                stopFocusHeartbeat();
+            }
+        }
+
+        async function enableFocusMode() {
+            const res = await fetchAPI('/focus-mode/start', {
+                method: 'POST',
+                body: JSON.stringify({
+                    source: 'exam',
+                    apply_device_controls: false,
+                    commit_system_changes: false
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.msg || 'Could not enable focus mode.');
+                return;
+            }
+            focusModeSessionId = data.session?.session_id || null;
+            syncFocusModeUI(true);
+            startFocusHeartbeat();
+            if (data.device_controls?.warnings?.length) {
+                console.log('Focus Mode warnings:', data.device_controls.warnings);
+            }
+        }
+
+        async function disableFocusMode(silent = false) {
+            const res = await fetchAPI('/focus-mode/stop', {
+                method: 'POST',
+                body: JSON.stringify({
+                    commit_system_changes: false
+                })
+            });
+            const data = await res.json();
+            stopFocusHeartbeat();
+            focusModeSessionId = null;
+            syncFocusModeUI(false);
+            if (!silent && (!res.ok || !data.ok)) {
+                alert(data.msg || 'Could not disable focus mode.');
+            }
+        }
+
+        async function toggleFocusMode() {
+            if (focusModeSessionId) {
+                await disableFocusMode();
+            } else {
+                await enableFocusMode();
+            }
         }
 
         function renderNavigator() {
@@ -243,6 +345,9 @@
                 alert(data.msg || 'Could not submit the exam.');
                 return;
             }
+            if (focusModeSessionId) {
+                await disableFocusMode(true);
+            }
             
             const overlay = document.createElement('div');
             overlay.className = 'fixed inset-0 bg-white/60 backdrop-blur-2xl z-50 flex items-center justify-center p-6';
@@ -261,6 +366,8 @@
             document.body.appendChild(overlay);
             document.exitFullscreen().catch(e => {});
         }
+
+        refreshFocusModeStatus();
     </script>
 </body>
 </html>

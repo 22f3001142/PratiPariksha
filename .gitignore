@@ -13,3 +13,4 @@ __pycache__/
 
 # Database (Do not upload your local DB file)
 backend/instance/*.db
+backend/focus_mode/*.db

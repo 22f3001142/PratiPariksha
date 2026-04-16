@@ -48,6 +48,16 @@
         <div class="flex-1 p-8 overflow-y-auto z-10">
             <div id="dashboard" class="tab-content active max-w-6xl mx-auto">
                 <h2 class="text-5xl font-heading font-bold mb-10 text-black">Dashboard</h2>
+                <div class="glass-panel-tw rounded-3xl p-6 mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                    <div>
+                        <div class="text-xs font-bold uppercase tracking-[0.2em] text-gray-400 mb-2">Focus Mode</div>
+                        <div class="text-lg font-semibold text-black">Use Focus Mode before or during a test to reduce distractions.</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span id="focusModeStatus" class="px-4 py-2 rounded-full bg-gray-100 text-gray-500 text-sm font-bold tracking-wide uppercase">Focus Off</span>
+                        <button id="focusModeBtn" class="bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-bold text-sm transition" onclick="toggleFocusMode()">Enable Focus Mode</button>
+                    </div>
+                </div>
                 <div class="grid grid-cols-4 gap-6 mb-12">
                     <div class="rounded-3xl p-6 text-white shadow-md" style="background: linear-gradient(to right, #00c6ff, #0072ff);">
                         <div class="text-white/80 text-sm font-semibold mb-2">Total Marks</div>
@@ -147,6 +157,8 @@
         document.getElementById('userNameDisplay').innerText = getDisplayName();
         let currentPoints = 0;
         let currentInventory = [];
+        let focusModeSessionId = null;
+        let focusModeHeartbeatInterval = null;
         let currentAvatar = '🙂';
 
         function showTab(tabId, element) {
@@ -168,6 +180,100 @@
 
         function renderAvatar(value) {
             document.getElementById('navAvatar').textContent = value || '🙂';
+        }
+
+        function syncFocusModeUI(active) {
+            const status = document.getElementById('focusModeStatus');
+            const button = document.getElementById('focusModeBtn');
+            if (!status || !button) {
+                return;
+            }
+            if (active) {
+                status.innerText = 'Focus On';
+                status.className = 'px-4 py-2 rounded-full bg-emerald-100 text-emerald-700 text-sm font-bold tracking-wide uppercase';
+                button.innerText = 'Disable Focus Mode';
+                button.className = 'bg-emerald-600 hover:opacity-80 text-white px-6 py-3 rounded-full font-bold text-sm transition';
+            } else {
+                status.innerText = 'Focus Off';
+                status.className = 'px-4 py-2 rounded-full bg-gray-100 text-gray-500 text-sm font-bold tracking-wide uppercase';
+                button.innerText = 'Enable Focus Mode';
+                button.className = 'bg-black hover:bg-gray-800 text-white px-6 py-3 rounded-full font-bold text-sm transition';
+            }
+        }
+
+        function startFocusHeartbeat() {
+            stopFocusHeartbeat();
+            if (!focusModeSessionId) return;
+            focusModeHeartbeatInterval = setInterval(async () => {
+                await fetchAPI('/focus-mode/heartbeat', {
+                    method: 'POST',
+                    body: JSON.stringify({ session_id: focusModeSessionId })
+                });
+            }, 30000);
+        }
+
+        function stopFocusHeartbeat() {
+            if (focusModeHeartbeatInterval) {
+                clearInterval(focusModeHeartbeatInterval);
+                focusModeHeartbeatInterval = null;
+            }
+        }
+
+        async function refreshFocusModeStatus() {
+            const res = await fetchAPI('/focus-mode/status');
+            if (!res.ok) {
+                syncFocusModeUI(false);
+                return;
+            }
+            const data = await res.json();
+            focusModeSessionId = data.session?.session_id || null;
+            syncFocusModeUI(Boolean(data.active));
+            if (data.active) {
+                startFocusHeartbeat();
+            } else {
+                stopFocusHeartbeat();
+            }
+        }
+
+        async function enableFocusMode() {
+            const res = await fetchAPI('/focus-mode/start', {
+                method: 'POST',
+                body: JSON.stringify({
+                    source: 'student-portal',
+                    apply_device_controls: false,
+                    commit_system_changes: false
+                })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.msg || 'Could not enable focus mode.');
+                return;
+            }
+            focusModeSessionId = data.session?.session_id || null;
+            syncFocusModeUI(true);
+            startFocusHeartbeat();
+        }
+
+        async function disableFocusMode(silent = false) {
+            const res = await fetchAPI('/focus-mode/stop', {
+                method: 'POST',
+                body: JSON.stringify({ commit_system_changes: false })
+            });
+            const data = await res.json();
+            stopFocusHeartbeat();
+            focusModeSessionId = null;
+            syncFocusModeUI(false);
+            if (!silent && (!res.ok || !data.ok)) {
+                alert(data.msg || 'Could not disable focus mode.');
+            }
+        }
+
+        async function toggleFocusMode() {
+            if (focusModeSessionId) {
+                await disableFocusMode();
+            } else {
+                await enableFocusMode();
+            }
         }
 
         async function loadDashboard() {
@@ -374,6 +480,7 @@
             window.location.href = 'cbt_exam.html';
         }
 
+        refreshFocusModeStatus();
         loadDashboard();
     </script>
 </body>

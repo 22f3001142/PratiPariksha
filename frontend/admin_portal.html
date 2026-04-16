@@ -201,8 +201,18 @@
                 document.getElementById('addUserForm').reset();
                 loadUsers();
             } else {
-                const data = await res.json();
-                alert(data.msg || 'Could not create user.');
+                let message = 'Could not create user.';
+                const contentType = res.headers.get('content-type') || '';
+                if (contentType.includes('application/json')) {
+                    const data = await res.json();
+                    message = data.msg || message;
+                } else {
+                    const text = await res.text();
+                    if (text) {
+                        message = text;
+                    }
+                }
+                alert(message);
             }
         };
 
