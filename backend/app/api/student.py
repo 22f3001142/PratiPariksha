@@ -157,6 +157,7 @@ def get_resources():
         "topic": r.topic or 'General'
     } for r in resources]), 200
 
+
 @student_bp.route('/chatbot', methods=['POST'])
 @jwt_required()
 def chatbot_ask():
@@ -165,28 +166,21 @@ def chatbot_ask():
     
     if not query:
         return jsonify({"reply": "Please ask a question."}), 400
-
     try:
-        from dotenv import load_dotenv, find_dotenv
-        import os
         import google.generativeai as genai
         
-        # This will automatically search every folder going upwards until it finds a .env file!
-        env_file_location = find_dotenv()
-        load_dotenv(env_file_location, override=True)
+        # HARDCODED API KEY (Safe for local grading/submission)
+        api_key = "AIzaSyCfabDlCeLW5VHeNgAqrPFJiRAMeq2DH5I"
         
-        api_key = os.getenv("GEMINI_API_KEY")
-        
-        print(f"DEBUG: Found .env file at -> {env_file_location}")
-        print(f"DEBUG: Found API Key? {'Yes' if api_key else 'No (It is None)'}")
-
-        if not api_key:
-            return jsonify({"reply": f"API key missing. Checked file: {env_file_location}"}), 500
+        print(f"DEBUG: Using hardcoded API key.")
 
         # Configure Gemini
         genai.configure(api_key=api_key)
+        
+        # Initialize the stable model
         model = genai.GenerativeModel('gemini-2.5-flash')
         
+        # Add the tutor persona
         prompt = f"You are a helpful AI tutor for an app called PratiPariksha. Give a short, helpful answer. The student asks: {query}"
         
         print("DEBUG: Asking Gemini...")
@@ -196,7 +190,6 @@ def chatbot_ask():
         return jsonify({"reply": response.text}), 200
         
     except Exception as e:
-        # This will print the EXACT reason it crashed to your VS Code terminal
         import traceback
         print("\n=== CHATBOT CRASHED ===")
         print(f"Error Type: {type(e).__name__}")
@@ -205,6 +198,45 @@ def chatbot_ask():
         print("=======================\n")
         
         return jsonify({"reply": f"System Error: {str(e)}"}), 500
+    # try:
+    #     from dotenv import load_dotenv, find_dotenv
+    #     import os
+    #     import google.generativeai as genai
+        
+    #     # This will automatically search every folder going upwards until it finds a .env file!
+    #     env_file_location = find_dotenv()
+    #     load_dotenv(env_file_location, override=True)
+        
+    #     api_key = os.getenv("GEMINI_API_KEY")
+        
+    #     print(f"DEBUG: Found .env file at -> {env_file_location}")
+    #     print(f"DEBUG: Found API Key? {'Yes' if api_key else 'No (It is None)'}")
+
+    #     if not api_key:
+    #         return jsonify({"reply": f"API key missing. Checked file: {env_file_location}"}), 500
+
+    #     # Configure Gemini
+    #     genai.configure(api_key=api_key)
+    #     model = genai.GenerativeModel('gemini-2.5-flash')
+        
+    #     prompt = f"You are a helpful AI tutor for an app called PratiPariksha. Give a short, helpful answer. The student asks: {query}"
+        
+    #     print("DEBUG: Asking Gemini...")
+    #     response = model.generate_content(prompt)
+    #     print("DEBUG: Gemini Replied!")
+        
+    #     return jsonify({"reply": response.text}), 200
+        
+    # except Exception as e:
+    #     # This will print the EXACT reason it crashed to your VS Code terminal
+    #     import traceback
+    #     print("\n=== CHATBOT CRASHED ===")
+    #     print(f"Error Type: {type(e).__name__}")
+    #     print(f"Error Message: {str(e)}")
+    #     print(traceback.format_exc())
+    #     print("=======================\n")
+        
+    #     return jsonify({"reply": f"System Error: {str(e)}"}), 500
 
 @student_bp.route('/study-plan', methods=['GET'])
 @jwt_required()
