@@ -1,16 +1,52 @@
-# OS specific
+# ---------- OS ----------
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Python specific
+# ---------- Editors / IDEs ----------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ---------- Claude / tooling ----------
+.claude/
+
+# ---------- Python ----------
 .venv/
 venv/
+env/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
 
-# Secrets (CRITICAL: Do not upload your Gemini Key!)
+# ---------- Secrets ----------
 .env
+.env.*
+!.env.example
 
-# Database (Do not upload your local DB file)
-backend/instance/*.db
+# ---------- Logs / temp ----------
+*.log
+logs/
+tmp/
+
+# ---------- Database ----------
+*.db
+*.sqlite
+*.sqlite3
+*-journal
+backend/instance/
 backend/focus_mode/*.db
+
+# ---------- User uploads ----------
+backend/uploads/
+
+# ---------- Smoke / ad-hoc test artifacts ----------
+smoke.py
