@@ -2,7 +2,7 @@ from collections import defaultdict
 import os
 from statistics import mean
 
-from .models import Forum, Question, Resource, Response, Student, Teacher
+from .models import Forum, ForumReply, Question, Resource, Response, Student, Teacher
 
 try:
     from openai import OpenAI
@@ -232,6 +232,35 @@ def build_teacher_analytics(teacher_id=None):
 
 def build_forum_payload(teacher_id=None):
     posts = Forum.query.order_by(Forum.id.desc()).all()
+    if not posts:
+        return []
+    post_ids = [p.id for p in posts]
+    all_replies = (
+        ForumReply.query
+        .filter(ForumReply.post_id.in_(post_ids))
+        .order_by(ForumReply.created_at.asc(), ForumReply.id.asc())
+        .all()
+    )
+    replies_by_post = {}
+    author_ids = {(r.author_role, r.author_id) for r in all_replies}
+    student_ids = {aid for role, aid in author_ids if role == 'student'}
+    teacher_ids_set = {aid for role, aid in author_ids if role == 'teacher'}
+    student_map = {s.admission_id: s for s in Student.query.filter(Student.admission_id.in_(student_ids)).all()} if student_ids else {}
+    teacher_map = {t.employee_id: t for t in Teacher.query.filter(Teacher.employee_id.in_(teacher_ids_set)).all()} if teacher_ids_set else {}
+    for reply in all_replies:
+        if reply.author_role == 'teacher':
+            author_obj = teacher_map.get(reply.author_id)
+        else:
+            author_obj = student_map.get(reply.author_id)
+        replies_by_post.setdefault(reply.post_id, []).append({
+            'id': reply.id,
+            'author_role': reply.author_role,
+            'author_id': reply.author_id,
+            'author_name': author_obj.name if author_obj else reply.author_id,
+            'body': reply.body,
+            'created_at': reply.created_at.isoformat() if reply.created_at else None,
+        })
+
     result = []
     for post in posts:
         student = Student.query.get(post.student_id)
@@ -242,9 +271,9 @@ def build_forum_payload(teacher_id=None):
             'student_name': student.name if student else 'Unknown',
             'student_id': post.student_id,
             'post': post.post,
-            'reply': post.reply,
             'poll': post.poll,
             'vote': post.vote,
+            'replies': replies_by_post.get(post.id, []),
         })
     return result
 
@@ -374,12 +403,11 @@ Return plain text only.
 """.strip()
 
     try:
-        response = client.responses.create(
+        response = client.chat.completions.create(
             model=model,
-            input=prompt,
+            messages=[{"role": "user", "content": prompt}],
         )
-        text = getattr(response, 'output_text', '') or ''
-        text = text.strip()
+        text = (response.choices[0].message.content or '').strip()
         if not text:
             return None
         return {

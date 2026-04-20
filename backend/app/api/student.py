@@ -1,12 +1,25 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt, get_jwt_identity
-from ..models import db, Student, Forum, Resource, Response, Question, Exam, TestPaper, TestPaperQuestion, Teacher
+from ..models import db, Student, Forum, ForumReply, Resource, Response, Question, Exam, TestPaper, TestPaperQuestion, Teacher, StudentTeacher
+
+
+def _assigned_teacher_ids(student):
+    if not student:
+        return []
+    ids = [row.teacher_id for row in StudentTeacher.query.filter_by(student_id=student.admission_id).all()]
+    if not ids and student.assigned_teacher_id:
+        ids = [student.assigned_teacher_id]
+    return ids
 from sqlalchemy import func
 from datetime import datetime
 from ..services import build_forum_payload, build_student_snapshot, generate_study_bot_reply, is_correct, topic_label
+from ..uploads import save_upload
 import os
-from dotenv import load_dotenv
-import google.generativeai as genai
+
+try:
+    from openai import OpenAI
+except ImportError:
+    OpenAI = None
 
 student_bp = Blueprint('student', __name__)
 
@@ -43,8 +56,8 @@ def get_dashboard():
         "inventory": student.inventory.split(',') if student.inventory else [],
         "weak_topics": snapshot['weak_topics'],
         "study_plan": snapshot['study_plan'],
-        "level_progress": student.points % 50,
-        "level_progress_percent": int(((student.points % 50) / 50) * 100),
+        "level_progress": student.points % 10,
+        "level_progress_percent": int(((student.points % 10) / 10) * 100),
         "assigned_teacher_id": student.assigned_teacher_id
     }), 200
 
@@ -54,12 +67,10 @@ def get_upcoming_tests():
     student_id = get_jwt_identity()
     student = Student.query.get(student_id)
     exam = Exam.query.first()
+    teacher_ids = _assigned_teacher_ids(student)
     query = TestPaper.query
-    if student and student.assigned_teacher_id:
-        teacher = Teacher.query.get(student.assigned_teacher_id)
-        query = query.filter_by(created_by=student.assigned_teacher_id)
-        if teacher and teacher.subject:
-            query = query.filter_by(topic=teacher.subject)
+    if teacher_ids:
+        query = query.filter(TestPaper.created_by.in_(teacher_ids))
     tests_from_bank = query.order_by(TestPaper.created_at.desc()).all()
     tests = []
     for test in tests_from_bank:
@@ -67,11 +78,16 @@ def get_upcoming_tests():
         tests.append({
             "id": test.id,
             "test_name": test.title,
-            "date": exam.start_time.isoformat() if is_active and exam.start_time else (test.created_at.isoformat() if test.created_at else "TBD"),
+            "date": exam.start_time.isoformat() if is_active and exam.start_time else (test.scheduled_start.isoformat() if test.scheduled_start else (test.created_at.isoformat() if test.created_at else "TBD")),
             "status": exam.status if is_active else "available",
             "topic": test.topic or "General",
             "description": test.description or "",
             "question_count": len(test.questions),
+            "duration_minutes": test.duration_minutes or 60,
+            "scheduled_start": test.scheduled_start.isoformat() if test.scheduled_start else None,
+            "scheduled_end": test.scheduled_end.isoformat() if test.scheduled_end else None,
+            "max_loo_breaks": test.max_loo_breaks or 0,
+            "max_loo_minutes": test.max_loo_minutes or 0,
         })
     return jsonify(tests), 200
 
@@ -138,24 +154,67 @@ def vote(post_id):
     db.session.commit()
     return jsonify({"msg": "Voted", "votes": post.vote}), 200
 
+
+@student_bp.route('/forum/<int:post_id>/reply', methods=['POST'])
+@jwt_required()
+def student_reply(post_id):
+    student_id = get_jwt_identity()
+    Forum.query.get_or_404(post_id)
+    data = request.get_json() or {}
+    body = (data.get('body') or '').strip()
+    if not body:
+        return jsonify({"msg": "Reply cannot be empty."}), 400
+    reply = ForumReply(post_id=post_id, author_role='student', author_id=student_id, body=body)
+    db.session.add(reply)
+    db.session.commit()
+    return jsonify({"msg": "Reply posted", "id": reply.id}), 201
+
 @student_bp.route('/resources', methods=['GET'])
 @jwt_required()
 def get_resources():
     student_id = get_jwt_identity()
     student = Student.query.get(student_id)
+    teacher_ids = _assigned_teacher_ids(student)
     query = Resource.query
-    if student and student.assigned_teacher_id:
-        teacher = Teacher.query.get(student.assigned_teacher_id)
-        query = query.filter_by(uploaded_by=student.assigned_teacher_id)
-        if teacher and teacher.subject:
-            query = query.filter_by(topic=teacher.subject)
+    if teacher_ids:
+        query = query.filter(Resource.uploaded_by.in_(teacher_ids))
     resources = query.all()
     return jsonify([{
         "id": r.id,
         "title": r.title,
         "file_url": r.file_url,
-        "topic": r.topic or 'General'
+        "topic": r.topic or 'General',
+        "notes_url": r.notes_url,
     } for r in resources]), 200
+
+
+@student_bp.route('/resources/<int:resource_id>/notes', methods=['POST'])
+@jwt_required()
+def add_resource_notes(resource_id):
+    resource = Resource.query.get_or_404(resource_id)
+    data = request.get_json() or {}
+    notes_url = (data.get('notes_url') or '').strip()
+    if not notes_url or not (notes_url.startswith('http://') or notes_url.startswith('https://')):
+        return jsonify({"msg": "Provide a valid http(s) URL."}), 400
+    resource.notes_url = notes_url
+    db.session.commit()
+    return jsonify({"msg": "Notes linked", "notes_url": resource.notes_url}), 200
+
+
+@student_bp.route('/resources/<int:resource_id>/notes-upload', methods=['POST'])
+@jwt_required()
+def upload_resource_notes(resource_id):
+    resource = Resource.query.get_or_404(resource_id)
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({"msg": "No file provided."}), 400
+    try:
+        notes_url = save_upload(file, 'notes')
+    except ValueError as exc:
+        return jsonify({"msg": str(exc)}), 400
+    resource.notes_url = notes_url
+    db.session.commit()
+    return jsonify({"msg": "Notes uploaded", "notes_url": notes_url}), 200
 
 
 @student_bp.route('/chatbot', methods=['POST'])
@@ -163,80 +222,29 @@ def get_resources():
 def chatbot_ask():
     data = request.get_json()
     query = data.get('query', '')
-    
+
     if not query:
         return jsonify({"reply": "Please ask a question."}), 400
+
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key or OpenAI is None:
+        return jsonify({"reply": "AI tutor is not configured. Set OPENAI_API_KEY in the environment."}), 503
+
+    model_name = os.getenv("OPENAI_CHATBOT_MODEL", "gpt-4.1-mini")
+    prompt = f"You are a helpful AI tutor for an app called PratiPariksha. Give a short, helpful answer. The student asks: {query}"
+
     try:
-        import google.generativeai as genai
-        
-        # HARDCODED API KEY (Safe for local grading/submission)
-        api_key = "AIzaSyCfabDlCeLW5VHeNgAqrPFJiRAMeq2DH5I"
-        
-        print(f"DEBUG: Using hardcoded API key.")
-
-        # Configure Gemini
-        genai.configure(api_key=api_key)
-        
-        # Initialize the stable model
-        model = genai.GenerativeModel('gemini-2.5-flash')
-        
-        # Add the tutor persona
-        prompt = f"You are a helpful AI tutor for an app called PratiPariksha. Give a short, helpful answer. The student asks: {query}"
-        
-        print("DEBUG: Asking Gemini...")
-        response = model.generate_content(prompt)
-        print("DEBUG: Gemini Replied!")
-        
-        return jsonify({"reply": response.text}), 200
-        
-    except Exception as e:
-        import traceback
-        print("\n=== CHATBOT CRASHED ===")
-        print(f"Error Type: {type(e).__name__}")
-        print(f"Error Message: {str(e)}")
-        print(traceback.format_exc())
-        print("=======================\n")
-        
-        return jsonify({"reply": f"System Error: {str(e)}"}), 500
-    # try:
-    #     from dotenv import load_dotenv, find_dotenv
-    #     import os
-    #     import google.generativeai as genai
-        
-    #     # This will automatically search every folder going upwards until it finds a .env file!
-    #     env_file_location = find_dotenv()
-    #     load_dotenv(env_file_location, override=True)
-        
-    #     api_key = os.getenv("GEMINI_API_KEY")
-        
-    #     print(f"DEBUG: Found .env file at -> {env_file_location}")
-    #     print(f"DEBUG: Found API Key? {'Yes' if api_key else 'No (It is None)'}")
-
-    #     if not api_key:
-    #         return jsonify({"reply": f"API key missing. Checked file: {env_file_location}"}), 500
-
-    #     # Configure Gemini
-    #     genai.configure(api_key=api_key)
-    #     model = genai.GenerativeModel('gemini-2.5-flash')
-        
-    #     prompt = f"You are a helpful AI tutor for an app called PratiPariksha. Give a short, helpful answer. The student asks: {query}"
-        
-    #     print("DEBUG: Asking Gemini...")
-    #     response = model.generate_content(prompt)
-    #     print("DEBUG: Gemini Replied!")
-        
-    #     return jsonify({"reply": response.text}), 200
-        
-    # except Exception as e:
-    #     # This will print the EXACT reason it crashed to your VS Code terminal
-    #     import traceback
-    #     print("\n=== CHATBOT CRASHED ===")
-    #     print(f"Error Type: {type(e).__name__}")
-    #     print(f"Error Message: {str(e)}")
-    #     print(traceback.format_exc())
-    #     print("=======================\n")
-        
-    #     return jsonify({"reply": f"System Error: {str(e)}"}), 500
+        client = OpenAI(api_key=api_key)
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[{"role": "user", "content": prompt}],
+        )
+        reply_text = (response.choices[0].message.content or '').strip()
+        if not reply_text:
+            return jsonify({"reply": "I could not generate a reply. Please try again."}), 502
+        return jsonify({"reply": reply_text}), 200
+    except Exception:
+        return jsonify({"reply": "The AI tutor is temporarily unavailable. Please try again later."}), 502
 
 @student_bp.route('/study-plan', methods=['GET'])
 @jwt_required()

@@ -35,4 +35,5 @@ with app.app_context():
             db.session.rollback()
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    port = int(os.getenv('PORT', '8391'))
+    app.run(debug=True, port=port)
