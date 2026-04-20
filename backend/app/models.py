@@ -80,6 +80,7 @@ class Resource(db.Model):
     file_url = db.Column(db.String(255), nullable=False)
     uploaded_by = db.Column(db.String(50), db.ForeignKey('teachers.employee_id'))
     topic = db.Column(db.String(100), default='General')
+    notes_url = db.Column(db.String(255), nullable=True)
 
 class TestPaper(db.Model):
     __tablename__ = 'test_papers'
@@ -89,6 +90,11 @@ class TestPaper(db.Model):
     description = db.Column(db.Text, default='')
     created_by = db.Column(db.String(50), db.ForeignKey('teachers.employee_id'))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    duration_minutes = db.Column(db.Integer, default=60)
+    scheduled_start = db.Column(db.DateTime, nullable=True)
+    scheduled_end = db.Column(db.DateTime, nullable=True)
+    max_loo_breaks = db.Column(db.Integer, default=1)
+    max_loo_minutes = db.Column(db.Integer, default=5)
     questions = db.relationship(
         'TestPaperQuestion',
         backref='test_paper',
@@ -109,3 +115,19 @@ class Mood(db.Model):
     student_id = db.Column(db.String(50), db.ForeignKey('students.admission_id'))
     mood = db.Column(db.String(20), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class StudentTeacher(db.Model):
+    __tablename__ = 'student_teachers'
+    student_id = db.Column(db.String(50), db.ForeignKey('students.admission_id'), primary_key=True)
+    teacher_id = db.Column(db.String(50), db.ForeignKey('teachers.employee_id'), primary_key=True)
+
+
+class ForumReply(db.Model):
+    __tablename__ = 'forum_replies'
+    id = db.Column(db.Integer, primary_key=True)
+    post_id = db.Column(db.Integer, db.ForeignKey('forum.id'), nullable=False)
+    author_role = db.Column(db.String(20), nullable=False)
+    author_id = db.Column(db.String(50), nullable=False)
+    body = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

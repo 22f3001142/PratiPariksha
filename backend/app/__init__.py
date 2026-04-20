@@ -76,6 +76,8 @@ def ensure_schema_updates(app):
             resource_columns = {column['name'] for column in inspector.get_columns('resources')}
             if 'topic' not in resource_columns:
                 db.session.execute(text("ALTER TABLE resources ADD COLUMN topic VARCHAR(100) DEFAULT 'General'"))
+            if 'notes_url' not in resource_columns:
+                db.session.execute(text("ALTER TABLE resources ADD COLUMN notes_url VARCHAR(255)"))
 
         if 'students' in inspector.get_table_names():
             student_columns = {column['name'] for column in inspector.get_columns('students')}
@@ -91,6 +93,19 @@ def ensure_schema_updates(app):
             exam_columns = {column['name'] for column in inspector.get_columns('exams')}
             if 'test_id' not in exam_columns:
                 db.session.execute(text("ALTER TABLE exams ADD COLUMN test_id INTEGER"))
+
+        if 'test_papers' in inspector.get_table_names():
+            test_columns = {column['name'] for column in inspector.get_columns('test_papers')}
+            if 'duration_minutes' not in test_columns:
+                db.session.execute(text("ALTER TABLE test_papers ADD COLUMN duration_minutes INTEGER DEFAULT 60"))
+            if 'scheduled_start' not in test_columns:
+                db.session.execute(text("ALTER TABLE test_papers ADD COLUMN scheduled_start DATETIME"))
+            if 'scheduled_end' not in test_columns:
+                db.session.execute(text("ALTER TABLE test_papers ADD COLUMN scheduled_end DATETIME"))
+            if 'max_loo_breaks' not in test_columns:
+                db.session.execute(text("ALTER TABLE test_papers ADD COLUMN max_loo_breaks INTEGER DEFAULT 1"))
+            if 'max_loo_minutes' not in test_columns:
+                db.session.execute(text("ALTER TABLE test_papers ADD COLUMN max_loo_minutes INTEGER DEFAULT 5"))
 
         db.session.commit()
 
@@ -117,8 +132,13 @@ def create_app():
     frontend_path = os.path.abspath(os.path.join(project_root, 'frontend'))
     # db_path = .../backend/instance/pratipariksha.db
     db_path = os.path.join(basedir, '..', 'instance', 'pratipariksha.db')
+    uploads_path = os.path.abspath(os.path.join(basedir, '..', 'uploads'))
+    os.makedirs(os.path.join(uploads_path, 'resources'), exist_ok=True)
+    os.makedirs(os.path.join(uploads_path, 'notes'), exist_ok=True)
 
     app = Flask(__name__, static_folder=frontend_path, static_url_path='/static')
+    app.config['UPLOAD_FOLDER'] = uploads_path
+    app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024  # 10 MB cap
 
     # 2. Database Configuration with Fallback
     # Support both common env var names so the checked-in .env works as expected.
@@ -167,9 +187,14 @@ def create_app():
     def index():
         return app.send_static_file('index.html')
 
+    @app.route('/uploads/<path:filename>')
+    def serve_upload(filename):
+        from flask import send_from_directory
+        return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+
     @app.route('/<path:filename>')
     def serve_frontend(filename):
-        if filename.startswith('api/'):
+        if filename.startswith('api/') or filename.startswith('uploads/'):
             from flask import abort
             abort(404)
         return app.send_static_file(filename)
