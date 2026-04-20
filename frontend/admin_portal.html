@@ -308,7 +308,9 @@
                 studentsWrap.appendChild(row);
             });
             list.appendChild(studentsWrap);
-            list.innerHTML += '<h4>Teachers</h4><ul>' + data.teachers.map(teacher => `<li>${teacher.name} (${teacher.employee_id}) · ${teacher.subject}</li>`).join('') + '</ul>';
+            const teachersSection = document.createElement('div');
+            teachersSection.innerHTML = '<h4>Teachers</h4><ul>' + data.teachers.map(teacher => `<li>${teacher.name} (${teacher.employee_id}) · ${teacher.subject}</li>`).join('') + '</ul>';
+            list.appendChild(teachersSection);
             syncUserFormState();
         }
 

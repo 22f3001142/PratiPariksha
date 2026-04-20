@@ -9,7 +9,7 @@ desktop.ini
 *.swp
 *.swo
 *~
-
+creds.md
 # ---------- Claude / tooling ----------
 .claude/
 

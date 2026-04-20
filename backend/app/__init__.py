@@ -18,7 +18,7 @@ def normalize_database_uri(database_uri, project_root):
         sqlite_path = database_uri[len('sqlite:///'):]
         if not os.path.isabs(sqlite_path):
             sqlite_path = os.path.join(project_root, sqlite_path)
-        database_uri = f"sqlite:///{os.path.abspath(sqlite_path)}"
+        database_uri = "sqlite:///" + os.path.abspath(sqlite_path).replace("\\", "/")
     return database_uri
 
 
@@ -131,7 +131,9 @@ def create_app():
     # frontend_path = .../frontend
     frontend_path = os.path.abspath(os.path.join(project_root, 'frontend'))
     # db_path = .../backend/instance/pratipariksha.db
-    db_path = os.path.join(basedir, '..', 'instance', 'pratipariksha.db')
+    instance_dir = os.path.abspath(os.path.join(basedir, '..', 'instance'))
+    os.makedirs(instance_dir, exist_ok=True)
+    db_path = os.path.join(instance_dir, 'pratipariksha.db')
     uploads_path = os.path.abspath(os.path.join(basedir, '..', 'uploads'))
     os.makedirs(os.path.join(uploads_path, 'resources'), exist_ok=True)
     os.makedirs(os.path.join(uploads_path, 'notes'), exist_ok=True)
