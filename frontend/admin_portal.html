@@ -50,6 +50,12 @@
                     <span class="slider"></span>
                 </label>
             </div>
+
+            <div class="card" style="margin-top:1.5rem;">
+                <h3>Test Scheduling</h3>
+                <p class="muted">Edit duration, start/end window, and loo-break caps per test.</p>
+                <div id="adminTestsList"></div>
+            </div>
         </div>
 
         <div id="user_management" class="tab-content">
@@ -65,7 +71,9 @@
                     <input type="text" id="userName" placeholder="Full Name" required>
                     <input type="email" id="userEmail" placeholder="Email" required>
                     <input type="password" id="userPassword" placeholder="Password" required>
-                    <select id="assignedTeacher"></select>
+                    <input type="text" id="teacherSubject" placeholder="Subject (teacher only, e.g. Mathematics)">
+                    <label for="assignedTeacher" style="display:block; margin-top:0.5rem;">Assign Teachers (students only — Ctrl/Cmd-click for multiple)</label>
+                    <select id="assignedTeacher" multiple size="4" style="min-height:6rem;"></select>
                     <button type="submit" class="btn btn-primary">Add User</button>
                 </form>
             </div>
@@ -127,9 +135,9 @@
         function syncUserFormState() {
             const role = document.getElementById('userRole').value;
             const assignedTeacher = document.getElementById('assignedTeacher');
+            const subjectInput = document.getElementById('teacherSubject');
             assignedTeacher.style.display = role === 'student' ? 'block' : 'none';
-            assignedTeacher.required = role === 'student';
-            assignedTeacher.previousElementSibling;
+            if (subjectInput) subjectInput.style.display = role === 'teacher' ? 'block' : 'none';
         }
 
         async function loadTests() {
@@ -142,6 +150,42 @@
             selector.innerHTML = tests.length
                 ? tests.map(test => `<option value="${test.id}">${test.title} · ${test.topic} · ${test.question_count} questions</option>`).join('')
                 : '<option value="">No tests available</option>';
+
+            const list = document.getElementById('adminTestsList');
+            if (!list) return;
+            if (!tests.length) { list.innerHTML = '<p class="muted">No tests available.</p>'; return; }
+            list.innerHTML = '';
+            tests.forEach(test => {
+                const row = document.createElement('div');
+                row.className = 'card';
+                row.style.marginTop = '0.75rem';
+                const toLocal = (iso) => iso ? new Date(iso).toISOString().slice(0, 16) : '';
+                row.innerHTML = `
+                    <strong>${test.title}</strong> <span class="muted">· ${test.topic} · ${test.question_count} questions</span>
+                    <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:0.5rem; margin-top:0.75rem;">
+                        <label>Duration (min)<input type="number" min="1" class="tf-duration" value="${test.duration_minutes || 60}"></label>
+                        <label>Start<input type="datetime-local" class="tf-start" value="${toLocal(test.scheduled_start)}"></label>
+                        <label>End<input type="datetime-local" class="tf-end" value="${toLocal(test.scheduled_end)}"></label>
+                        <label>Max Breaks<input type="number" min="0" class="tf-maxbreaks" value="${test.max_loo_breaks || 0}"></label>
+                        <label>Max Min / Break<input type="number" min="0" class="tf-maxbreakmins" value="${test.max_loo_minutes || 0}"></label>
+                    </div>
+                    <button class="btn btn-primary" style="margin-top:0.75rem;" data-test-id="${test.id}">Save</button>
+                `;
+                row.querySelector('button').onclick = async (ev) => {
+                    const card = ev.target.closest('.card');
+                    const payload = {
+                        duration_minutes: parseInt(card.querySelector('.tf-duration').value, 10) || 60,
+                        scheduled_start: card.querySelector('.tf-start').value ? new Date(card.querySelector('.tf-start').value).toISOString() : null,
+                        scheduled_end: card.querySelector('.tf-end').value ? new Date(card.querySelector('.tf-end').value).toISOString() : null,
+                        max_loo_breaks: parseInt(card.querySelector('.tf-maxbreaks').value, 10) || 0,
+                        max_loo_minutes: parseInt(card.querySelector('.tf-maxbreakmins').value, 10) || 0,
+                    };
+                    const r = await fetchAPI(`/admin/tests/${test.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+                    const d = await r.json().catch(() => ({}));
+                    alert(d.msg || (r.ok ? 'Saved.' : 'Could not save.'));
+                };
+                list.appendChild(row);
+            });
         }
 
         async function checkExamStatus() {
@@ -185,15 +229,18 @@
 
         document.getElementById('addUserForm').onsubmit = async (e) => {
             e.preventDefault();
+            const role = document.getElementById('userRole').value;
+            const selectedTeachers = role === 'student'
+                ? Array.from(document.getElementById('assignedTeacher').selectedOptions).map(opt => opt.value).filter(Boolean)
+                : [];
             const body = {
-                role: document.getElementById('userRole').value,
+                role,
                 id: document.getElementById('userId').value,
                 name: document.getElementById('userName').value,
                 email: document.getElementById('userEmail').value,
                 password: document.getElementById('userPassword').value,
-                assigned_teacher_id: document.getElementById('userRole').value === 'student'
-                    ? document.getElementById('assignedTeacher').value
-                    : null
+                assigned_teacher_ids: selectedTeachers,
+                subject: role === 'teacher' ? (document.getElementById('teacherSubject').value || 'Mathematics') : undefined,
             };
             const res = await fetchAPI('/admin/users', { method: 'POST', body: JSON.stringify(body) });
             if (res.ok) {
@@ -225,8 +272,42 @@
             const list = document.getElementById('usersList');
             const teacherMap = Object.fromEntries(data.teachers.map(teacher => [teacher.employee_id, teacher]));
             const assignedTeacher = document.getElementById('assignedTeacher');
-            assignedTeacher.innerHTML = '<option value="">Assign Teacher</option>' + data.teachers.map(teacher => `<option value="${teacher.employee_id}">${teacher.name} · ${teacher.subject}</option>`).join('');
-            list.innerHTML = '<h4>Students</h4><ul>' + data.students.map(student => `<li>${student.name} (${student.admission_id})${student.assigned_teacher_id ? ` · ${teacherMap[student.assigned_teacher_id]?.name || student.assigned_teacher_id}` : ''}</li>`).join('') + '</ul>';
+            assignedTeacher.innerHTML = data.teachers.map(teacher => `<option value="${teacher.employee_id}">${teacher.name} · ${teacher.subject}</option>`).join('');
+
+            list.innerHTML = '<h4>Students</h4>';
+            const studentsWrap = document.createElement('div');
+            data.students.forEach(student => {
+                const row = document.createElement('div');
+                row.className = 'card';
+                row.style.margin = '0.5rem 0';
+                const tnames = (student.assigned_teacher_ids || []).map(id => teacherMap[id] ? `${teacherMap[id].name} (${teacherMap[id].subject})` : id).join(', ') || '—';
+                row.innerHTML = `
+                    <strong>${student.name}</strong> <span class="muted">(${student.admission_id})</span>
+                    <p class="muted" style="margin:0.3rem 0;">Current: ${tnames}</p>
+                    <select multiple size="3" style="min-height:5rem; width:100%;" class="student-teachers-edit"></select>
+                    <button class="btn btn-primary" style="margin-top:0.5rem;">Save assignments</button>
+                `;
+                const select = row.querySelector('select');
+                data.teachers.forEach(t => {
+                    const opt = document.createElement('option');
+                    opt.value = t.employee_id;
+                    opt.textContent = `${t.name} · ${t.subject}`;
+                    if ((student.assigned_teacher_ids || []).includes(t.employee_id)) opt.selected = true;
+                    select.appendChild(opt);
+                });
+                row.querySelector('button').onclick = async () => {
+                    const ids = Array.from(select.selectedOptions).map(o => o.value);
+                    const r = await fetchAPI(`/admin/students/${encodeURIComponent(student.admission_id)}/teachers`, {
+                        method: 'PUT',
+                        body: JSON.stringify({ teacher_ids: ids })
+                    });
+                    const d = await r.json().catch(() => ({}));
+                    alert(d.msg || (r.ok ? 'Saved.' : 'Could not save.'));
+                    if (r.ok) loadUsers();
+                };
+                studentsWrap.appendChild(row);
+            });
+            list.appendChild(studentsWrap);
             list.innerHTML += '<h4>Teachers</h4><ul>' + data.teachers.map(teacher => `<li>${teacher.name} (${teacher.employee_id}) · ${teacher.subject}</li>`).join('') + '</ul>';
             syncUserFormState();
         }

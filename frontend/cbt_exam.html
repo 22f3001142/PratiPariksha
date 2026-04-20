@@ -77,6 +77,10 @@
         <div class="flex items-center gap-4">
             <span id="focusModeStatus" class="px-4 py-2 rounded-full bg-gray-100 text-gray-500 text-sm font-bold tracking-wide uppercase">Focus Off</span>
             <button id="focusModeBtn" class="px-5 py-3 rounded-2xl bg-black text-white font-bold hover:opacity-80 transition" onclick="toggleFocusMode()">Enable Focus Mode</button>
+            <div id="looBreakControls" class="flex items-center gap-2" style="display:none;">
+                <button id="looBreakBtn" class="px-5 py-3 rounded-2xl bg-amber-500 text-white font-bold hover:opacity-80 transition" onclick="toggleLooBreak()">Take a Break</button>
+                <span id="looBreakInfo" class="text-xs text-gray-500 font-semibold"></span>
+            </div>
             <div class="text-3xl font-heading font-bold tracking-tight text-gray-900" id="timer">00:00:00</div>
         </div>
     </header>
@@ -122,8 +126,14 @@
         let marked = {};
         let timerSeconds = 3600;
         let timerInterval = null;
+        let timerPaused = false;
         let focusModeSessionId = null;
         let focusModeHeartbeatInterval = null;
+        let examConfig = { max_loo_breaks: 0, max_loo_minutes: 0 };
+        let looBreaksUsed = 0;
+        let looBreakActive = false;
+        let looBreakDeadline = null;
+        let looBreakInterval = null;
 
         document.getElementById('studentNameDisplay').innerText = getDisplayName();
 
@@ -165,7 +175,15 @@
                 document.getElementById('optionsList').innerHTML = '';
                 return;
             }
-            questions = data;
+            questions = Array.isArray(data) ? data : (data.questions || []);
+            if (typeof data.remaining_seconds === 'number') {
+                timerSeconds = Math.max(0, data.remaining_seconds);
+            } else if (typeof data.duration_minutes === 'number') {
+                timerSeconds = data.duration_minutes * 60;
+            }
+            examConfig.max_loo_breaks = data.max_loo_breaks || 0;
+            examConfig.max_loo_minutes = data.max_loo_minutes || 0;
+            updateLooBreakUI();
             renderNavigator();
             showQuestion(0);
         }
@@ -190,10 +208,12 @@
             stopFocusHeartbeat();
             if (!focusModeSessionId) return;
             focusModeHeartbeatInterval = setInterval(async () => {
-                await fetchAPI('/focus-mode/heartbeat', {
-                    method: 'POST',
-                    body: JSON.stringify({ session_id: focusModeSessionId })
-                });
+                try {
+                    await fetchAPI('/focus-mode/heartbeat', {
+                        method: 'POST',
+                        body: JSON.stringify({ session_id: focusModeSessionId })
+                    });
+                } catch (_) { /* ignore heartbeat failures */ }
             }, 30000);
         }
 
@@ -204,58 +224,56 @@
             }
         }
 
+        window.addEventListener('beforeunload', stopFocusHeartbeat);
+
         async function refreshFocusModeStatus() {
-            const res = await fetchAPI('/focus-mode/status');
-            if (!res.ok) {
+            try {
+                const res = await fetchAPI('/focus-mode/status');
+                if (!res.ok) { syncFocusModeUI(false); return; }
+                const data = await res.json();
+                focusModeSessionId = data.session?.session_id || null;
+                syncFocusModeUI(Boolean(data.active));
+                if (data.active) startFocusHeartbeat(); else stopFocusHeartbeat();
+            } catch (_) {
                 syncFocusModeUI(false);
-                return;
-            }
-            const data = await res.json();
-            focusModeSessionId = data.session?.session_id || null;
-            syncFocusModeUI(Boolean(data.active));
-            if (data.active) {
-                startFocusHeartbeat();
-            } else {
-                stopFocusHeartbeat();
             }
         }
 
         async function enableFocusMode() {
-            const res = await fetchAPI('/focus-mode/start', {
-                method: 'POST',
-                body: JSON.stringify({
-                    source: 'exam',
-                    apply_device_controls: false,
-                    commit_system_changes: false
-                })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.ok) {
-                alert(data.msg || 'Could not enable focus mode.');
-                return;
-            }
-            focusModeSessionId = data.session?.session_id || null;
-            syncFocusModeUI(true);
-            startFocusHeartbeat();
-            if (data.device_controls?.warnings?.length) {
-                console.log('Focus Mode warnings:', data.device_controls.warnings);
+            try {
+                const res = await fetchAPI('/focus-mode/start', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        source: 'exam',
+                        apply_device_controls: false,
+                        commit_system_changes: false
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.ok === false) {
+                    console.warn('Focus mode could not start; continuing without it.', data);
+                    syncFocusModeUI(false);
+                    return;
+                }
+                focusModeSessionId = data.session?.session_id || null;
+                syncFocusModeUI(Boolean(focusModeSessionId));
+                if (focusModeSessionId) startFocusHeartbeat();
+            } catch (err) {
+                console.warn('Focus mode start failed; continuing without it.', err);
+                syncFocusModeUI(false);
             }
         }
 
         async function disableFocusMode(silent = false) {
-            const res = await fetchAPI('/focus-mode/stop', {
-                method: 'POST',
-                body: JSON.stringify({
-                    commit_system_changes: false
-                })
-            });
-            const data = await res.json();
+            try {
+                await fetchAPI('/focus-mode/stop', {
+                    method: 'POST',
+                    body: JSON.stringify({ commit_system_changes: false })
+                });
+            } catch (_) { /* ignore */ }
             stopFocusHeartbeat();
             focusModeSessionId = null;
             syncFocusModeUI(false);
-            if (!silent && (!res.ok || !data.ok)) {
-                alert(data.msg || 'Could not disable focus mode.');
-            }
         }
 
         async function toggleFocusMode() {
@@ -319,15 +337,136 @@
         function prevQuestion() { if (currentIndex > 0) showQuestion(currentIndex - 1); }
         function markForReview() { marked[currentIndex] = !marked[currentIndex]; renderNavigator(); }
 
+        function renderTimer() {
+            const h = Math.floor(timerSeconds / 3600);
+            const m = Math.floor((timerSeconds % 3600) / 60);
+            const s = timerSeconds % 60;
+            document.getElementById('timer').innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
         function startTimer() {
+            renderTimer();
             timerInterval = setInterval(() => {
+                if (timerPaused) return;
                 timerSeconds--;
-                if (timerSeconds <= 0) { clearInterval(timerInterval); submitExam(); }
-                const h = Math.floor(timerSeconds / 3600);
-                const m = Math.floor((timerSeconds % 3600) / 60);
-                const s = timerSeconds % 60;
-                document.getElementById('timer').innerText = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+                if (timerSeconds <= 0) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                    autoSubmitExam();
+                    return;
+                }
+                renderTimer();
             }, 1000);
+        }
+
+        async function autoSubmitExam() {
+            const payload = questions.map((question, index) => ({
+                question_id: question.id,
+                answer: responses[index] || ''
+            })).filter(item => item.answer !== '');
+            try {
+                await fetchAPI('/exam/submit', {
+                    method: 'POST',
+                    body: JSON.stringify({ responses: payload })
+                });
+            } catch (_) { /* ignore */ }
+            alert('Time is up. Your exam has been submitted automatically.');
+            window.location.href = 'student_portal.html';
+        }
+
+        function updateLooBreakUI() {
+            const container = document.getElementById('looBreakControls');
+            if (!container) return;
+            if (!examConfig.max_loo_breaks || examConfig.max_loo_breaks <= 0) {
+                container.style.display = 'none';
+                return;
+            }
+            container.style.display = '';
+            const remaining = examConfig.max_loo_breaks - looBreaksUsed;
+            const btn = document.getElementById('looBreakBtn');
+            const info = document.getElementById('looBreakInfo');
+            if (looBreakActive) {
+                btn.innerText = 'Resume Exam';
+                btn.disabled = false;
+            } else {
+                btn.innerText = 'Take a Break';
+                btn.disabled = remaining <= 0;
+            }
+            info.innerText = `Breaks left: ${Math.max(0, remaining)} · Max ${examConfig.max_loo_minutes} min each`;
+        }
+
+        async function toggleLooBreak() {
+            if (looBreakActive) {
+                await endLooBreak();
+            } else {
+                await startLooBreak();
+            }
+        }
+
+        async function startLooBreak() {
+            if (looBreaksUsed >= examConfig.max_loo_breaks) return;
+            try {
+                const res = await fetchAPI('/exam/loo-break/start', { method: 'POST' });
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}));
+                    alert(data.msg || 'Could not start a break.');
+                    return;
+                }
+            } catch (_) { return; }
+            looBreakActive = true;
+            looBreaksUsed += 1;
+            timerPaused = true;
+            const maxMs = (examConfig.max_loo_minutes || 0) * 60 * 1000;
+            looBreakDeadline = maxMs > 0 ? Date.now() + maxMs : null;
+            renderBreakOverlay();
+            if (looBreakInterval) clearInterval(looBreakInterval);
+            looBreakInterval = setInterval(() => {
+                if (!looBreakDeadline) return;
+                const remaining = Math.max(0, looBreakDeadline - Date.now());
+                updateBreakOverlay(remaining);
+                if (remaining <= 0) endLooBreak();
+            }, 1000);
+            updateLooBreakUI();
+        }
+
+        async function endLooBreak() {
+            try {
+                await fetchAPI('/exam/loo-break/end', { method: 'POST' });
+            } catch (_) { /* ignore */ }
+            looBreakActive = false;
+            timerPaused = false;
+            looBreakDeadline = null;
+            if (looBreakInterval) { clearInterval(looBreakInterval); looBreakInterval = null; }
+            const overlay = document.getElementById('looBreakOverlay');
+            if (overlay) overlay.remove();
+            updateLooBreakUI();
+        }
+
+        function renderBreakOverlay() {
+            let overlay = document.getElementById('looBreakOverlay');
+            if (!overlay) {
+                overlay = document.createElement('div');
+                overlay.id = 'looBreakOverlay';
+                overlay.className = 'fixed inset-0 bg-black/70 z-40 flex items-center justify-center p-6';
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-3xl p-12 max-w-md w-full text-center">
+                        <h2 class="text-3xl font-bold mb-3">On Break</h2>
+                        <p class="text-gray-500 mb-6">Your timer is paused. Come back soon.</p>
+                        <div id="looBreakCountdown" class="text-5xl font-bold mb-8 text-blue-600">—</div>
+                        <button onclick="endLooBreak()" class="w-full bg-black text-white font-bold py-4 rounded-2xl hover:opacity-80 transition">Resume Exam</button>
+                    </div>`;
+                document.body.appendChild(overlay);
+            }
+        }
+
+        function updateBreakOverlay(remainingMs) {
+            const el = document.getElementById('looBreakCountdown');
+            if (!el) return;
+            if (!remainingMs && remainingMs !== 0) { el.innerText = '—'; return; }
+            const s = Math.floor(remainingMs / 1000);
+            const m = Math.floor(s / 60);
+            const ss = s % 60;
+            el.innerText = `${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`;
         }
 
         async function submitExam() {

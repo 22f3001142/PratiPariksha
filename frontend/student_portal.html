@@ -205,10 +205,12 @@
             stopFocusHeartbeat();
             if (!focusModeSessionId) return;
             focusModeHeartbeatInterval = setInterval(async () => {
-                await fetchAPI('/focus-mode/heartbeat', {
-                    method: 'POST',
-                    body: JSON.stringify({ session_id: focusModeSessionId })
-                });
+                try {
+                    await fetchAPI('/focus-mode/heartbeat', {
+                        method: 'POST',
+                        body: JSON.stringify({ session_id: focusModeSessionId })
+                    });
+                } catch (_) { /* ignore */ }
             }, 30000);
         }
 
@@ -219,53 +221,56 @@
             }
         }
 
+        window.addEventListener('beforeunload', stopFocusHeartbeat);
+
         async function refreshFocusModeStatus() {
-            const res = await fetchAPI('/focus-mode/status');
-            if (!res.ok) {
+            try {
+                const res = await fetchAPI('/focus-mode/status');
+                if (!res.ok) { syncFocusModeUI(false); return; }
+                const data = await res.json();
+                focusModeSessionId = data.session?.session_id || null;
+                syncFocusModeUI(Boolean(data.active));
+                if (data.active) startFocusHeartbeat(); else stopFocusHeartbeat();
+            } catch (_) {
                 syncFocusModeUI(false);
-                return;
-            }
-            const data = await res.json();
-            focusModeSessionId = data.session?.session_id || null;
-            syncFocusModeUI(Boolean(data.active));
-            if (data.active) {
-                startFocusHeartbeat();
-            } else {
-                stopFocusHeartbeat();
             }
         }
 
         async function enableFocusMode() {
-            const res = await fetchAPI('/focus-mode/start', {
-                method: 'POST',
-                body: JSON.stringify({
-                    source: 'student-portal',
-                    apply_device_controls: false,
-                    commit_system_changes: false
-                })
-            });
-            const data = await res.json();
-            if (!res.ok || !data.ok) {
-                alert(data.msg || 'Could not enable focus mode.');
-                return;
+            try {
+                const res = await fetchAPI('/focus-mode/start', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        source: 'student-portal',
+                        apply_device_controls: false,
+                        commit_system_changes: false
+                    })
+                });
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || data.ok === false) {
+                    console.warn('Focus mode could not start.', data);
+                    syncFocusModeUI(false);
+                    return;
+                }
+                focusModeSessionId = data.session?.session_id || null;
+                syncFocusModeUI(Boolean(focusModeSessionId));
+                if (focusModeSessionId) startFocusHeartbeat();
+            } catch (err) {
+                console.warn('Focus mode start failed.', err);
+                syncFocusModeUI(false);
             }
-            focusModeSessionId = data.session?.session_id || null;
-            syncFocusModeUI(true);
-            startFocusHeartbeat();
         }
 
         async function disableFocusMode(silent = false) {
-            const res = await fetchAPI('/focus-mode/stop', {
-                method: 'POST',
-                body: JSON.stringify({ commit_system_changes: false })
-            });
-            const data = await res.json();
+            try {
+                await fetchAPI('/focus-mode/stop', {
+                    method: 'POST',
+                    body: JSON.stringify({ commit_system_changes: false })
+                });
+            } catch (_) { /* ignore */ }
             stopFocusHeartbeat();
             focusModeSessionId = null;
             syncFocusModeUI(false);
-            if (!silent && (!res.ok || !data.ok)) {
-                alert(data.msg || 'Could not disable focus mode.');
-            }
         }
 
         async function toggleFocusMode() {
@@ -400,30 +405,62 @@
             loadShop();
         }
 
+        function escapeHtml(s) {
+            return String(s ?? '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+        }
+
         async function loadForum() {
             const res = await fetchAPI('/student/forum');
-            if (!res.ok) {
-                return;
-            }
+            if (!res.ok) return;
             const posts = await res.json();
             const list = document.getElementById('forumPostsList');
-            list.innerHTML = posts.length ? '' : '<div class="glass-panel-tw rounded-3xl p-6">No doubts posted yet. Ask your first question.</div>';
+            if (!posts.length) { list.innerHTML = '<div class="glass-panel-tw rounded-3xl p-6">No doubts posted yet. Ask your first question.</div>'; return; }
+            list.innerHTML = '';
             posts.forEach(post => {
-                list.innerHTML += `
-                    <div class="glass-panel-tw rounded-3xl p-6">
-                        <div class="flex justify-between items-start gap-6">
-                            <div>
-                                <h3 class="font-heading font-bold text-xl">${post.student_name}</h3>
-                                <p class="text-gray-700 mt-3">${post.post}</p>
-                            </div>
-                            <div class="text-sm text-gray-500">${post.vote} votes</div>
+                const card = document.createElement('div');
+                card.className = 'glass-panel-tw rounded-3xl p-6';
+                const replies = (post.replies || []).map(r => `
+                    <div class="mt-3 p-3 rounded-2xl ${r.author_role === 'teacher' ? 'bg-green-50 text-green-800' : 'bg-blue-50 text-blue-800'}">
+                        <div class="text-xs font-bold uppercase tracking-wide">${escapeHtml(r.author_role)} · ${escapeHtml(r.author_name)}${r.created_at ? ' · ' + new Date(r.created_at).toLocaleString() : ''}</div>
+                        <div class="mt-1">${escapeHtml(r.body)}</div>
+                    </div>
+                `).join('') || '<div class="mt-3 p-3 rounded-2xl bg-yellow-50 text-yellow-700">No replies yet.</div>';
+                card.innerHTML = `
+                    <div class="flex justify-between items-start gap-6">
+                        <div>
+                            <h3 class="font-heading font-bold text-xl">${escapeHtml(post.student_name)}</h3>
+                            <p class="text-gray-700 mt-3">${escapeHtml(post.post)}</p>
                         </div>
-                        <div class="mt-4 p-4 rounded-2xl ${post.reply ? 'bg-green-50 text-green-700' : 'bg-yellow-50 text-yellow-700'}">
-                            ${post.reply ? `<strong>Teacher Reply:</strong> ${post.reply}` : 'Awaiting teacher response.'}
-                        </div>
+                        <div class="text-sm text-gray-500">${post.vote} votes</div>
+                    </div>
+                    <div class="mt-4">${replies}</div>
+                    <div class="mt-4 flex gap-2">
+                        <input type="text" id="reply_${post.id}" placeholder="Write a reply..." class="flex-1 rounded-2xl p-3 border border-white/50 bg-white/70">
+                        <button class="bg-black text-white px-5 py-3 rounded-full font-bold text-sm">Reply</button>
                     </div>
                 `;
+                card.querySelector('button').onclick = () => postReply(post.id);
+                list.appendChild(card);
             });
+        }
+
+        async function postReply(postId) {
+            const input = document.getElementById(`reply_${postId}`);
+            const body = input.value.trim();
+            if (!body) { alert('Reply cannot be empty.'); return; }
+            const res = await fetchAPI(`/student/forum/${postId}/reply`, {
+                method: 'POST',
+                body: JSON.stringify({ body })
+            });
+            if (!res.ok) {
+                const d = await res.json().catch(() => ({}));
+                alert(d.msg || 'Could not post reply.');
+                return;
+            }
+            input.value = '';
+            loadForum();
         }
 
         document.getElementById('forumForm').onsubmit = async (event) => {
@@ -506,34 +543,64 @@ async function loadResources() {
             </div>
         `;
     });
-}async function addStudentNotes(resourceId) {
-    const driveLink = prompt("Please enter your Google Drive link for the Student Notes:");
-    
-    if (!driveLink) return; // User cancelled
+}
+async function addStudentNotes(resourceId) {
+    const choice = (prompt("Share notes by:\n1 — Upload a file (PDF, TXT, DOCX, PPT, PPTX, max 10 MB)\n2 — Paste a link\n\nEnter 1 or 2:") || '').trim();
 
-    // Basic validation to ensure it looks like a URL
-    if (!driveLink.startsWith('http')) {
-        alert("Please enter a valid URL (starting with http:// or https://)");
+    if (choice === '2') {
+        const link = prompt("Paste a notes link (http:// or https://):");
+        if (!link) return;
+        if (!link.startsWith('http://') && !link.startsWith('https://')) {
+            alert("Please enter a valid URL starting with http:// or https://");
+            return;
+        }
+        try {
+            const res = await fetchAPI(`/student/resources/${resourceId}/notes`, {
+                method: 'POST',
+                body: JSON.stringify({ notes_url: link })
+            });
+            if (res.ok) {
+                alert("Notes link saved.");
+                loadResources();
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.msg || "Failed to save notes.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred while connecting to the server.");
+        }
         return;
     }
 
-    try {
-        const res = await fetchAPI(`/student/resources/${resourceId}/notes`, {
-            method: 'POST',
-            body: JSON.stringify({ notes_url: driveLink })
-        });
+    if (choice !== '1') return;
 
-        if (res.ok) {
-            alert("Notes link saved successfully!");
-            loadResources(); // Refresh the list to show the new link
-        } else {
-            const data = await res.json();
-            alert(data.msg || "Failed to save notes.");
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = '.pdf,.txt,.docx,.ppt,.pptx';
+    picker.onchange = async () => {
+        const file = picker.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        try {
+            const res = await fetchAPI(`/student/resources/${resourceId}/notes-upload`, {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                alert("Notes uploaded.");
+                loadResources();
+            } else {
+                const data = await res.json().catch(() => ({}));
+                alert(data.msg || "Failed to upload notes.");
+            }
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred while uploading.");
         }
-    } catch (err) {
-        console.error("Error saving notes:", err);
-        alert("An error occurred while connecting to the server.");
-    }
+    };
+    picker.click();
 }
         document.getElementById('studyBotForm').onsubmit = async (event) => {
             event.preventDefault();

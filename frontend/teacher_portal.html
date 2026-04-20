@@ -147,6 +147,16 @@
                         <input type="text" id="testTopic" placeholder="Mathematics"><br><br>
                         <label>Description</label>
                         <textarea id="testDescription" style="height:90px;" placeholder="What should this test reinforce?"></textarea><br><br>
+                        <label>Duration (minutes)</label>
+                        <input type="number" id="testDuration" min="1" value="60" required><br><br>
+                        <label>Scheduled Start (optional)</label>
+                        <input type="datetime-local" id="testStart"><br><br>
+                        <label>Scheduled End (optional)</label>
+                        <input type="datetime-local" id="testEnd"><br><br>
+                        <label>Max Loo Breaks</label>
+                        <input type="number" id="testMaxBreaks" min="0" value="1"><br><br>
+                        <label>Max Minutes per Break</label>
+                        <input type="number" id="testMaxBreakMins" min="0" value="5"><br><br>
                         <p class="muted">Select questions from the live question bank below, then create the test.</p>
                         <div id="testBuilderQuestions"></div><br>
                         <button type="submit" class="btn btn-primary">Create Test</button>
@@ -174,8 +184,11 @@
                         <input type="text" id="resourceTitle" placeholder="Electrostatics Crash Notes" required><br><br>
                         <label>Topic</label>
                         <input type="text" id="resourceTopic" placeholder="Mathematics" required><br><br>
-                        <label>Link</label>
-                        <input type="url" id="resourceUrl" placeholder="https://example.com/notes" required><br><br>
+                        <label>Upload file (PDF, TXT, DOCX, PPT, PPTX — max 10 MB)</label>
+                        <input type="file" id="resourceFile" accept=".pdf,.txt,.docx,.ppt,.pptx"><br><br>
+                        <label>Or paste a link</label>
+                        <input type="url" id="resourceUrl" placeholder="https://example.com/notes"><br>
+                        <p class="muted" style="margin:4px 0 12px;">Provide a file or a link.</p>
                         <button type="submit" class="btn btn-primary">Add Resource</button>
                     </form>
                 </div>
@@ -419,10 +432,17 @@
         document.getElementById('createTestForm').onsubmit = async (event) => {
             event.preventDefault();
             const selected = Array.from(document.querySelectorAll('.test-question:checked')).map(input => parseInt(input.value, 10));
+            const startVal = document.getElementById('testStart').value;
+            const endVal = document.getElementById('testEnd').value;
             const payload = {
                 title: document.getElementById('testTitle').value,
                 topic: document.getElementById('testTopic').value || teacherSubject,
                 description: document.getElementById('testDescription').value,
+                duration_minutes: parseInt(document.getElementById('testDuration').value, 10) || 60,
+                scheduled_start: startVal ? new Date(startVal).toISOString() : null,
+                scheduled_end: endVal ? new Date(endVal).toISOString() : null,
+                max_loo_breaks: parseInt(document.getElementById('testMaxBreaks').value, 10) || 0,
+                max_loo_minutes: parseInt(document.getElementById('testMaxBreakMins').value, 10) || 0,
                 question_ids: selected
             };
             const res = await fetchAPI('/teacher/tests', { method: 'POST', body: JSON.stringify(payload) });
@@ -433,6 +453,9 @@
             }
             document.getElementById('createTestForm').reset();
             document.getElementById('testTopic').value = teacherSubject;
+            document.getElementById('testDuration').value = 60;
+            document.getElementById('testMaxBreaks').value = 1;
+            document.getElementById('testMaxBreakMins').value = 5;
             document.querySelectorAll('.test-question').forEach(input => { input.checked = false; });
             await loadSavedTests();
             alert('Test created successfully.');
@@ -447,63 +470,98 @@
             const list = document.getElementById('savedTestsList');
             list.innerHTML = tests.length ? '' : '<p class="muted">No saved tests yet.</p>';
             tests.forEach(test => {
+                const start = test.scheduled_start ? new Date(test.scheduled_start).toLocaleString() : '—';
                 list.innerHTML += `
                     <div class="question-card">
                         <strong>${test.title}</strong>
-                        <p class="muted">${test.topic} · ${test.question_count} questions</p>
+                        <p class="muted">${test.topic} · ${test.question_count} questions · ${test.duration_minutes || 60} min · Starts: ${start}</p>
                         <p>${test.description || 'No description added.'}</p>
+                        <p class="muted">Breaks: ${test.max_loo_breaks || 0} × ${test.max_loo_minutes || 0} min</p>
                     </div>
                 `;
             });
+        }
+
+        function escapeHtml(s) {
+            return String(s ?? '')
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         async function loadForum() {
             const res = await fetchAPI('/teacher/forum');
-            if (!res.ok) {
-                return;
-            }
+            if (!res.ok) return;
             const data = await res.json();
             const list = document.getElementById('forumPostsList');
-            list.innerHTML = data.length ? '' : '<div class="card">No student doubts yet.</div>';
+            if (!data.length) { list.innerHTML = '<div class="card">No student doubts yet.</div>'; return; }
+            list.innerHTML = '';
             data.forEach(post => {
-                list.innerHTML += `
-                    <div class="card" style="margin-top:1rem;">
-                        <strong>${post.student_name}</strong>
-                        <p class="muted">${post.student_id}</p>
-                        <p>${post.post}</p>
-                        <div style="margin-top:1rem;">
-                            <textarea id="reply_${post.id}" placeholder="Type your response..." style="height:80px;">${post.reply || ''}</textarea><br><br>
-                            <button class="btn btn-success" onclick="replyForum(${post.id})">${post.reply ? 'Update Reply' : 'Reply'}</button>
-                        </div>
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.style.marginTop = '1rem';
+                const replies = (post.replies || []).map(r => `
+                    <div style="border-left:3px solid #ddd; padding:0.5rem 0.75rem; margin:0.5rem 0;">
+                        <strong>${escapeHtml(r.author_name)}</strong>
+                        <span class="muted"> · ${escapeHtml(r.author_role)}${r.created_at ? ' · ' + new Date(r.created_at).toLocaleString() : ''}</span>
+                        <p style="margin:0.3rem 0 0;">${escapeHtml(r.body)}</p>
+                    </div>
+                `).join('') || '<p class="muted">No replies yet.</p>';
+                card.innerHTML = `
+                    <strong>${escapeHtml(post.student_name)}</strong>
+                    <p class="muted">${escapeHtml(post.student_id)}</p>
+                    <p>${escapeHtml(post.post)}</p>
+                    <div style="margin-top:0.75rem;">
+                        <h4 style="margin:0.5rem 0;">Thread</h4>
+                        ${replies}
+                    </div>
+                    <div style="margin-top:0.75rem;">
+                        <textarea id="reply_${post.id}" placeholder="Post a reply..." style="height:70px;"></textarea><br><br>
+                        <button class="btn btn-success">Add Reply</button>
                     </div>
                 `;
+                card.querySelector('button').onclick = () => replyForum(post.id);
+                list.appendChild(card);
             });
         }
 
         async function replyForum(postId) {
-            const reply = document.getElementById(`reply_${postId}`).value;
+            const body = document.getElementById(`reply_${postId}`).value.trim();
+            if (!body) { alert('Reply cannot be empty.'); return; }
             const res = await fetchAPI(`/teacher/forum/reply/${postId}`, {
                 method: 'POST',
-                body: JSON.stringify({ reply })
+                body: JSON.stringify({ body })
             });
             if (!res.ok) {
-                alert('Could not save the reply.');
+                const d = await res.json().catch(() => ({}));
+                alert(d.msg || 'Could not save the reply.');
                 return;
             }
-            alert('Reply saved.');
             loadForum();
         }
 
         document.getElementById('resourceForm').onsubmit = async (event) => {
             event.preventDefault();
-            const payload = {
-                title: document.getElementById('resourceTitle').value,
-                topic: document.getElementById('resourceTopic').value || teacherSubject,
-                file_url: document.getElementById('resourceUrl').value
-            };
-            const res = await fetchAPI('/teacher/resources', { method: 'POST', body: JSON.stringify(payload) });
+            const title = document.getElementById('resourceTitle').value.trim();
+            const topic = document.getElementById('resourceTopic').value.trim() || teacherSubject;
+            const url = document.getElementById('resourceUrl').value.trim();
+            const fileInput = document.getElementById('resourceFile');
+            const file = fileInput.files[0];
+
+            if (!file && !url) {
+                alert('Upload a file or paste a link.');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('title', title);
+            formData.append('topic', topic);
+            if (file) formData.append('file', file);
+            if (url) formData.append('file_url', url);
+
+            const res = await fetchAPI('/teacher/resources', { method: 'POST', body: formData });
             if (!res.ok) {
-                alert('Could not add resource.');
+                const err = await res.json().catch(() => ({}));
+                alert(err.msg || 'Could not add resource.');
                 return;
             }
             document.getElementById('resourceForm').reset();
